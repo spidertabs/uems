@@ -1,0 +1,123 @@
+-- ============================================================
+--  UEMS - University Exam Management System
+=================-- ===========================================
+i already have my data in my database so i wanna build the files
+
+| Component     | Tech                       |
+| ------------- | -------------------------- |
+| Database      | MySQL (XAMPP)              |
+| Backend API   | Next.js API routes (v16)         |
+| Frontend UI   | Next.js (React/TSX)        |
+| ORM / DB Tool | `mysql2/promise` (raw SQL) |
+| Shadcn        | tailwind v4                |
+
+
+i.e Lecturer → Question Bank → Paper Creation → Internal Review → Submit to HOD
+
+HOD Receives Paper → Quality Review → Provide Feedback → 
+    ↓
+[APPROVE] → Forward to Exam Department
+    ↓
+[REJECT] → Return to Lecturer with Comments → Lecturer Revises → Resubmit
+
+WORKFLOW:
+1. Lecturer creates paper (draft)
+2. Lecturer submits paper → status: 'submitted'
+3. HOD reviews → status: 'hod_review'
+4. HOD approves → status: 'hod_approved' → status: 'ready_for_print'
+5. Exam Master prints → status: 'printing' → 'printed'
+6. Paper published → status: 'published'
+
+NOTE: Dont generate files that I have
+
+
+📦 uems/
+│
+├── 📜 .env.local                                   # Environment variables      ✅️
+├── 📜 .env.example                                 # Example environment file   ✅️
+├── 📜 .gitignore                                                                ✅️
+├── 📜 next.config.js                                                            ✅️ 
+├── 📜 package.json                                                              ✅️
+├── 📜 tsconfig.json                                # TypeScript configuration   ✅️
+├── 📜 tailwind.config.js                                                        ✅️
+│
+├── 📂 scripts/
+│   ├── 📜 setup-database.js                        # Creates MySQL tables
+│   └── 📜 seed-database.js                         # Inserts seed data
+│
+├── 📂 sql/
+│   ├── 📜 schema.sql                               # Database schema            ✅️
+│   └── 📜 seed.sql                                 # Initial data insert        ✅️
+│
+├── 📂 public/                                      # Static assets              ✅️
+│   ├── 📂 static                                                                ✅️
+│   │   ├── 📂 favicons                                                          ✅️
+│   │   ├── 📂 images                                                            ✅️
+│   │   │   ├── kiu-logo.jpeg                                                    ✅️
+│   │   │   ├── kiu-seal.png                                                     ✅️
+│   │   └── 📂 stamps/                              # Digital stamps             ✅️
+│
+├── 📂 css/
+│   ├── 📜 prism.css                                                             ✅️                  
+│   └── 📜 tailwind.css                             # Tailwind v4                ✅️
+│ 
+├── 📂 src/
+│   │
+│   ├── 📜 proxy.ts
+│   │   
+│   ├── 📂 app/
+│   │   │
+│   │   ├── 📂 auth/
+│   │   │   ├── 📂 login/
+│   │   │   │   └── page.tsx
+│   │   │   └── 📂 register/
+│   │   │       └── page.tsx
+│   │   │
+│   │   ├── 📂(dashboard)/
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx
+│   │   │
+│   │   ├── 📂 api/
+│   │   │   ├── 📂 auth/
+│   │   │   │   ├── login/route.ts
+│   │   │   │   ├── logout/route.ts
+│   │   │   │   ├── me/route.ts
+│   │   │   │   └── register/route.ts
+│   │   │
+│   │   ├── 📜 globals.css                                                       ✅️
+│   │   ├── 📜 not-found.tsx                                                     ✅️
+│   │   ├── 📜 robot.tx                                                          ✅️
+│   │   ├── 📜 seo.tsx                                                           ✅️
+│   │   │
+│   │   └── layout.tsx         
+│   │
+│   ├── 📂 components/                               # Reusable components
+│   │   ├── 📂📜ui
+│   │
+│   ├── 📂 data/
+│   │   └── headerNavLinks.ts
+│   │
+│   ├── 📂 hooks/
+│   │   ├── useAuth.ts
+│   │   └── useRole.ts
+│   │
+│   ├── 📂 lib/
+│   │   ├── db.ts                                     # MySQL connection         ✅️
+│   │   ├── auth.ts                                                              ✅️
+│   │   ├── rbac.ts                                                              ✅️
+│   │   └── utils.ts                                                             ✅️
+│   │
+│   ├── 📂 types/
+│   │   ├── env.d.ts                                                             ✅️
+│   │   └── index.ts                                                             ✅️
+│   │
+│   ├── 📂 config/
+│   │   └── index.ts                                                             ✅️
+│   │
+│   └── 📜 proxy.ts                                                             ✅️
+│
+│
+└── 📜 README.md                                     # Documentation
+
+
+https://chatgpt.com/gg/v/69230e4f3374819485df94008b5aa1a6?token=R2A7bCFe2WI0XI43DX3LTQ

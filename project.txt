@@ -1,0 +1,207 @@
+-- ============================================================
+--  UEMS - University Exam Management System
+=================-- ===========================================
+i already have my data in my database so i wanna build the files
+
+| Component     | Tech                       |
+| ------------- | -------------------------- |
+| Database      | MySQL (XAMPP)              |
+| Backend API   | Next.js API routes         |
+| Frontend UI   | Next.js (React/TSX)        |
+| ORM / DB Tool | `mysql2/promise` (raw SQL) |
+| Shadcn        | tailwind v4                |
+
+
+i.e Lecturer → Question Bank → Paper Creation → Internal Review → Submit to HOD
+
+HOD Receives Paper → Quality Review → Provide Feedback → 
+    ↓
+[APPROVE] → Forward to Exam Department
+    ↓
+[REJECT] → Return to Lecturer with Comments → Lecturer Revises → Resubmit
+
+WORKFLOW:
+1. Lecturer creates paper (draft)
+2. Lecturer submits paper → status: 'submitted'
+3. HOD reviews → status: 'hod_review'
+4. HOD approves → status: 'hod_approved' → status: 'ready_for_print'
+5. Exam Master prints → status: 'printing' → 'printed'
+6. Paper published → status: 'published'
+
+NOTE: Dont generate files that I have
+
+
+📦 uems/
+│
+├── 📜 .env.local                                   # Environment variables      ✅️
+├── 📜 .env.example                                 # Example environment file   ✅️
+├── 📜 .gitignore                                                                ✅️
+├── 📜 next.config.js                                                            ✅️ 
+├── 📜 package.json                                                              ✅️
+├── 📜 tsconfig.json                                # TypeScript configuration   ✅️
+├── 📜 tailwind.config.js                                                        ✅️
+│
+├── 📂 scripts/
+│   ├── 📜 setup-database.js                        # Creates MySQL tables
+│   └── 📜 seed-database.js                         # Inserts seed data
+│
+├── 📂 sql/
+│   ├── 📜 schema.sql                               # Database schema            ✅️
+│   └── 📜 seed.sql                                 # Initial data insert        ✅️
+│
+├── 📂 public/                                      # Static assets              ✅️
+│   ├── 📂 static                                                                ✅️
+│   │   ├── 📂 favicons                                                          ✅️
+│   │   ├── 📂 images  
+│   │   │   ├── kiu-home.png                                                     ✅️
+│   │   │   ├── kiu-logo.png                                                     ✅️
+│   │   │   ├── kiu-seal.png                                                     ✅️
+│   │   └── 📂 stamps/                              # Digital stamps             ✅️
+│
+├── 📂 css/
+│   ├── 📜 prism.css                                                             ✅️                  
+│   └── 📜 tailwind.css                             # Tailwind v4                ✅️
+│ 
+├── 📂 src/
+│   │
+│   ├── 📜 middleware.ts
+│   │   
+│   ├── 📂 app/
+│   │   │
+│   │   ├── 📂 (auth)/
+│   │   │   ├── 📂 login/
+│   │   │   │   └── page.tsx
+│   │   │   └── 📂 register/
+│   │   │       └── page.tsx
+│   │   │
+│   │   ├── 📂(dashboard)/
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx
+│   │   │
+│   │   │   ├── 📂 exam-papers/
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── 📂 create/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── 📂 submitted/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── 📂 [paperId]/
+│   │   │   │       ├── page.tsx
+│   │   │   │       ├── 📂 edit/
+│   │   │   │       │   └── page.tsx
+│   │   │   │       ├── 📂 preview/
+│   │   │   │       │   └── page.tsx
+│   │   │   │       └── 📂 select-questions/
+│   │   │   │           └── page.tsx
+│   │   │
+│   │   │   ├── 📂 question-bank/
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── 📂 create/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── 📂 edit/[id]/
+│   │   │   │       └── page.tsx
+│   │   │
+│   │   │   ├── 📂 courses/
+│   │   │   │   ├── 📜 page.tsx                    # Courses list
+│   │   │   │   ├── 📂 create/
+│   │   │   │   │   └── 📜 page.tsx                # Create course
+│   │   │   │   ├── 📂 import/
+│   │   │   │   │   └── 📜 page.tsx                # Import courses CSV/Excel
+│   │   │   │   ├── 📂 edit/
+│   │   │   │   │   └── 📂 [id]/
+│   │   │   │   │       └── 📜 page.tsx            # Edit course
+│   │   │   │   └── 📂 [id]/                       # Course details
+│   │   │   │       ├── 📜 page.tsx                # View course details
+│   │   │   │       └── 📂 study-units/            # Nested under a course
+│   │   │   │           ├── 📜 page.tsx            # Study units list
+│   │   │   │           ├── 📂 create/
+│   │   │   │           │   └── 📜 page.tsx        # Create study unit
+│   │   │   │           └── 📂 [unitId]/           # Study unit details
+│   │   │   │               ├── 📜 page.tsx        # View study unit
+│   │   │   │               └── 📂 edit/
+│   │   │   │                   └── 📜 page.tsx    # Edit study unit
+│   │   │
+│   │   │   ├── 📂 approvals/
+│   │   │   │   └── 📜 page.tsx
+│   │   │
+│   │   │   ├── 📂 notifications/                    # ⭐ Inbox / Outbox / Feedback
+│   │   │   │   ├── 📂 inbox/
+│   │   │   │   │   └── page.tsx                     # Papers waiting for action
+│   │   │   │   ├── 📂 outbox/
+│   │   │   │   │   └── page.tsx                     # Papers user submitted
+│   │   │   │   ├── 📂 feedback/
+│   │   │   │   │   └── page.tsx                     # Returned papers + comments
+│   │   │   │   └── 📂 history/
+│   │   │   │       └── page.tsx                     # Audit logs + timeline
+│   │   │
+│   │   │   └── 📂 profile/
+│   │   │       └── page.tsx
+│   │   │
+│   │   ├── 📂 api/
+│   │   │   ├── 📂 auth/
+│   │   │   │   ├── login/route.ts
+│   │   │   │   ├── logout/route.ts
+│   │   │   │   ├── me/route.ts
+│   │   │   │   └── register/route.ts
+│   │   │
+│   │   │   ├── 📂 stats/
+│   │   │   │   └── route.ts
+│   │   │
+│   │   │   ├── 📂 question-bank/
+│   │   │   │   ├── route.ts
+│   │   │   │   ├── create/route.ts
+│   │   │   │   └── [id]/route.ts
+│   │   │
+│   │   │   ├── 📂 exam-papers/
+│   │   │   │   ├── route.ts
+│   │   │   │   ├── create/route.ts
+│   │   │   │   └── [id]/
+│   │   │   │       ├── route.ts
+│   │   │   │       ├── submit/route.ts
+│   │   │   │       └── approve/route.ts
+│   │   │
+│   │   │   ├── 📂 workflows/
+│   │   │   │   ├── inbox/route.ts
+│   │   │   │   ├── outbox/route.ts
+│   │   │   │   ├── feedback/route.ts
+│   │   │   │   └── history/route.ts
+│   │   │
+│   │   │   └── notifications/route.ts
+│   │   │
+│   │   ├── 📜 globals.css                                                       ✅️
+│   │   ├── 📜 not-found.tsx                                                     ✅️
+│   │   ├── 📜 robot.tx                                                          ✅️
+│   │   ├── 📜 seo.tsx                                                           ✅️
+│   │   ├── 📜 theme-providers.tsx                                               ✅️
+│   │   │
+│   │   └── layout.tsx         
+│   │
+│   ├── 📂 components/                               # Reusable components
+│   │   ├── 📂📜ui
+│   │
+│   ├── 📂 data/
+│   │   └── headerNavLinks.ts
+│   │
+│   ├── 📂 hooks/
+│   │   ├── useAuth.ts
+│   │   └── useRole.ts
+│   │
+│   ├── 📂 lib/
+│   │   ├── db.ts                                     # MySQL connection         ✅️
+│   │   ├── auth.ts                                                              ✅️
+│   │   ├── rbac.ts                                                              ✅️
+│   │   └── utils.ts                                                             ✅️
+│   │
+│   ├── 📂 types/
+│   │   ├── env.d.ts                                                             ✅️
+│   │   └── index.ts                                                             ✅️
+│   │
+│   ├── 📂 config/
+│   │   └── index.ts                                                             ✅️
+│   │
+│   └── 📜 proxy.ts                                                             ✅️
+│
+│
+└── 📜 README.md                                     # Documentation
+
+
+https://chatgpt.com/gg/v/69230e4f3374819485df94008b5aa1a6?token=R2A7bCFe2WI0XI43DX3LTQ

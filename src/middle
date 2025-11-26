@@ -1,0 +1,46 @@
+// src/middleware.ts
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export function middleware(request: NextRequest) {
+  const session = request.cookies.get('session')?.value
+  const { pathname } = request.nextUrl
+
+  console.log('🛡️ Middleware:', { pathname, hasSession: !!session })
+
+  // Public (unauthenticated) routes
+  const publicRoutes = ['/login', '/register']
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
+
+  // Root redirect
+  if (pathname === '/') {
+    if (session) {
+      console.log('✅ Authenticated → redirect to /dashboard')
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    } else {
+      console.log('❌ Not authenticated → redirect to /login')
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+  }
+
+  // Protect private routes
+  if (!session && !isPublicRoute) {
+    console.log('❌ No session → redirect to /login')
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // Prevent logged-in users from accessing login/register
+  if (session && isPublicRoute) {
+    console.log('⛔ Authenticated users cannot access auth pages → redirect to dashboard')
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  console.log('➡️ Allowing request')
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: [
+    '/((?!api|_next/static|_next/image|static|favicon.ico|robots.txt|sitemap.xml).*)',
+  ],
+}
