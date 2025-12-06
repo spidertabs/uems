@@ -1,7 +1,7 @@
 -- ============================================================
 --  UEMS - University Exam Management System
-=================-- ===========================================
-i already have my data in my database so i wanna build the files
+===============================================================
+I already have my data in my database so i wanna build the files
 
 | Component     | Tech                       |
 | ------------- | -------------------------- |
@@ -176,7 +176,7 @@ NOTE: Dont generate files that I have
 │   │   └── layout.tsx         
 │   │
 │   ├── 📂 components/                               # Reusable components
-│   │   ├── 📂📜ui
+│   │   ├── 📂 ui
 │   │
 │   ├── 📂 data/
 │   │   └── headerNavLinks.ts
@@ -202,6 +202,3 @@ NOTE: Dont generate files that I have
 │
 │
 └── 📜 README.md                                     # Documentation
-
-
-https://chatgpt.com/gg/v/69230e4f3374819485df94008b5aa1a6?token=R2A7bCFe2WI0XI43DX3LTQ

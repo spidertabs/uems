@@ -33,8 +33,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
   const isAuthRoute = pathname.startsWith('/auth');
+
+  // Initialize theme from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+      setDarkMode(true);
+      document.documentElement.classList.add('dark');
+    } else {
+      setDarkMode(false);
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
 
   useEffect(() => {
     if (!isAuthRoute) {
@@ -66,6 +81,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       router.refresh();
     } catch (error) {
       console.error('Logout failed:', error);
+    }
+  };
+
+  const toggleTheme = () => {
+    if (darkMode) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setDarkMode(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setDarkMode(true);
     }
   };
 
@@ -121,7 +148,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         alt="KIU"
                         width={40}
                         height={40}
-                        className="rounded-full"
+                        className="rounded"
                       />
                       <span className="ml-3 hidden text-xl font-bold text-gray-900 sm:block dark:text-white">
                         UEMS
@@ -129,8 +156,47 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     </div>
                   </div>
 
-                  {/* User Menu */}
-                  <div className="flex items-center space-x-4">
+                  {/* User Menu & Theme Toggle */}
+                  <div className="flex items-center space-x-3">
+                    {/* Theme Toggle Button */}
+                    <button
+                      onClick={toggleTheme}
+                      className="rounded-lg p-2 text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      aria-label="Toggle theme"
+                    >
+                      {darkMode ? (
+                        // Sun icon for light mode
+                        <svg
+                          className="h-5 w-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                          />
+                        </svg>
+                      ) : (
+                        // Moon icon for dark mode
+                        <svg
+                          className="h-5 w-5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                          />
+                        </svg>
+                      )}
+                    </button>
+
                     <div className="hidden items-center space-x-2 text-sm md:flex">
                       <span className="text-gray-600 dark:text-gray-400">{user?.name}</span>
                       <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -151,7 +217,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="flex pt-16">
               {/* Sidebar */}
               <aside
-                className={`fixed top-16 left-0 z-20 h-[calc(100vh-4rem)] w-64 transform transition-transform duration-200 ease-in-out lg:sticky ${
+                className={`fixed top-16 left-0 z-20 h-[calc(100vh-4rem)] w-64 transform transition-transform duration-200 ease-in-out lg:fixed ${
                   sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
                 } overflow-y-auto border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800`}
               >

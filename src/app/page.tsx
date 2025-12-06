@@ -151,7 +151,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 lg:pl-64">
       {/* Welcome */}
       <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white shadow-xl">
         <h1 className="mb-2 text-3xl font-bold">

@@ -3,6 +3,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
+import { NextRequest } from 'next/server';
 import { query } from './db';
 
 export interface UserPayload {
@@ -204,4 +205,59 @@ export async function registerUser(data: {
 export function hasRole(user: UserPayload | null, allowedRoles: string[]): boolean {
   if (!user) return false;
   return allowedRoles.includes(user.role);
+}
+
+// Verify authentication from NextRequest (for API routes)
+export async function verifyAuth(request: NextRequest): Promise<UserPayload | null> {
+  try {
+    const sessionId = request.cookies.get('session')?.value;
+
+    if (!sessionId) {
+      return null;
+    }
+
+    const rows = await query<any[]>(
+      `SELECT u.id, u.email, u.first_name, u.last_name, u.role, 
+              u.department_id, u.college_id
+       FROM sessions s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.session_id = ? AND s.expires_at > NOW() AND u.is_active = 1
+       LIMIT 1`,
+      [sessionId]
+    );
+
+    const result = Array.isArray(rows) ? rows[0] : null;
+
+    if (!result) {
+      return null;
+    }
+
+    return {
+      id: result.id,
+      email: result.email,
+      first_name: result.first_name,
+      last_name: result.last_name,
+      role: result.role,
+      department_id: result.department_id,
+      college_id: result.college_id,
+    };
+  } catch (error) {
+    console.error('Auth verification error:', error);
+    return null;
+  }
+}
+
+// Verify authentication and check roles
+export async function verifyAuthWithRoles(
+  request: NextRequest,
+  allowedRoles: string[]
+): Promise<{ user: UserPayload | null; hasAccess: boolean }> {
+  const user = await verifyAuth(request);
+  
+  if (!user) {
+    return { user: null, hasAccess: false };
+  }
+
+  const hasAccess = allowedRoles.includes(user.role);
+  return { user, hasAccess };
 }
