@@ -123,7 +123,7 @@ export default function StudyUnitsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 lg:pl-64">
       {/* Header */}
       <div>
         <Link

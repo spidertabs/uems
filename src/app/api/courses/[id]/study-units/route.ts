@@ -5,35 +5,27 @@ import { query } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 
 export async function GET(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await verifyAuth(request);
+    const user = await verifyAuth(req);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const courseId = params.id;
 
-    // Check if course exists
-    const courseCheck = await query<any[]>(
-      'SELECT id FROM courses WHERE id = ?',
-      [courseId]
-    );
-
-    if (courseCheck.length === 0) {
-      return NextResponse.json({ error: 'Course not found' }, { status: 404 });
-    }
-
-    // Get study units with question count
-    const studyUnits = await query<any[]>(
+    const studyUnits = await query(
       `SELECT 
         su.*,
         CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
-        (SELECT COUNT(*) FROM questions WHERE study_unit_id = su.id) as questions_count
+        c.code as course_code,
+        c.title as course_title,
+        (SELECT COUNT(*) FROM questions WHERE study_unit_id = su.id AND is_active = TRUE) as questions_count
       FROM study_units su
       LEFT JOIN users u ON su.created_by = u.id
+      LEFT JOIN courses c ON su.course_id = c.id
       WHERE su.course_id = ?
       ORDER BY su.sequence_order ASC`,
       [courseId]
@@ -41,7 +33,7 @@ export async function GET(
 
     return NextResponse.json({ study_units: studyUnits });
   } catch (error) {
-    console.error('Failed to fetch study units:', error);
+    console.error('Study units fetch error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch study units' },
       { status: 500 }
@@ -50,25 +42,32 @@ export async function GET(
 }
 
 export async function POST(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await verifyAuth(request);
+    const user = await verifyAuth(req);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only HODs and admins can create study units
-    if (!['hod', 'admin'].includes(user.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Only HOD, Dean, and Admin can create study units
+    if (!['hod', 'dean', 'admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const courseId = params.id;
-    const body = await request.json();
-    const { code, name, description, learning_outcomes, sequence_order, is_active = true } = body;
+    const body = await req.json();
+    const {
+      code,
+      name,
+      description,
+      sequence_order,
+      learning_outcomes,
+      is_active = true,
+    } = body;
 
-    // Validate required fields
+    // Validation
     if (!code || !name) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -77,69 +76,79 @@ export async function POST(
     }
 
     // Check if course exists
-    const courseCheck = await query<any[]>(
+    const courses = await query(
       'SELECT id FROM courses WHERE id = ?',
       [courseId]
     );
 
-    if (courseCheck.length === 0) {
+    const course = Array.isArray(courses) ? courses[0] : null;
+
+    if (!course) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
     // Check if code already exists for this course
-    const existing = await query<any[]>(
+    const existing = await query(
       'SELECT id FROM study_units WHERE course_id = ? AND code = ?',
       [courseId, code]
     );
 
-    if (existing.length > 0) {
+    if (Array.isArray(existing) && existing.length > 0) {
       return NextResponse.json(
         { error: 'Study unit code already exists for this course' },
-        { status: 400 }
+        { status: 409 }
       );
     }
 
-    // Get max sequence order if not provided
+    // If no sequence_order provided, get the next number
     let finalSequenceOrder = sequence_order;
     if (!finalSequenceOrder) {
-      const maxOrder = await query<any[]>(
-        'SELECT MAX(sequence_order) as max_order FROM study_units WHERE course_id = ?',
+      const maxOrders = await query(
+        'SELECT COALESCE(MAX(sequence_order), 0) + 1 as next_order FROM study_units WHERE course_id = ?',
         [courseId]
       );
-      finalSequenceOrder = (maxOrder[0]?.max_order || 0) + 1;
+      const maxOrder = Array.isArray(maxOrders) ? maxOrders[0] : null;
+      finalSequenceOrder = maxOrder?.next_order || 1;
     }
 
-    // Insert study unit
-    const result = await query<any>(
-      `INSERT INTO study_units 
-        (course_id, code, name, description, learning_outcomes, sequence_order, created_by, is_active) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    const result = await query(
+      `INSERT INTO study_units (
+        course_id, code, name, description, sequence_order,
+        learning_outcomes, created_by, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         courseId,
         code,
         name,
         description || null,
-        learning_outcomes || null,
         finalSequenceOrder,
+        learning_outcomes || null,
         user.id,
-        is_active,
+        is_active ? 1 : 0,
       ]
     );
 
+    const studyUnitId = (result as any).insertId;
+
     // Fetch the created study unit
-    const studyUnit = await query<any[]>(
+    const studyUnits = await query(
       `SELECT 
         su.*,
-        CONCAT(u.first_name, ' ', u.last_name) as created_by_name
+        CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
+        c.code as course_code,
+        c.title as course_title
       FROM study_units su
       LEFT JOIN users u ON su.created_by = u.id
+      LEFT JOIN courses c ON su.course_id = c.id
       WHERE su.id = ?`,
-      [result.insertId]
+      [studyUnitId]
     );
 
-    return NextResponse.json({ study_unit: studyUnit[0] }, { status: 201 });
+    const studyUnit = Array.isArray(studyUnits) ? studyUnits[0] : null;
+
+    return NextResponse.json({ study_unit: studyUnit }, { status: 201 });
   } catch (error) {
-    console.error('Failed to create study unit:', error);
+    console.error('Study unit creation error:', error);
     return NextResponse.json(
       { error: 'Failed to create study unit' },
       { status: 500 }

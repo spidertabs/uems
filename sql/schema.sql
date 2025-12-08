@@ -195,13 +195,11 @@ CREATE TABLE exam_papers (
     duration INT COMMENT 'Duration in minutes',
     total_marks INT DEFAULT 0,
     instructions TEXT,
-    
     -- Workflow status
     status ENUM('draft', 'submitted', 'hod_review', 'hod_approved', 'hod_rejected',
                 'dean_review', 'dean_approved', 'dean_rejected',
                 'ready_for_print', 'printing', 'printed', 'published') 
            DEFAULT 'draft',
-    
     -- Approval tracking
     hod_id INT COMMENT 'HOD who needs to approve',
     hod_approved_at TIMESTAMP NULL,
@@ -210,23 +208,19 @@ CREATE TABLE exam_papers (
     exam_master_id INT COMMENT 'Exam Master handling printing',
     printed_at TIMESTAMP NULL,
     print_quantity INT DEFAULT 0,
-    
     -- Metadata
     submitted_at TIMESTAMP NULL,
     published_at TIMESTAMP NULL,
     version INT DEFAULT 1,
     is_locked BOOLEAN DEFAULT FALSE,
     metadata JSON COMMENT 'Additional paper metadata',
-    
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (hod_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (dean_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (exam_master_id) REFERENCES users(id) ON DELETE SET NULL,
-    
     INDEX idx_paper_code (paper_code),
     INDEX idx_course (course_id),
     INDEX idx_created_by (created_by),
