@@ -13,122 +13,132 @@ interface Course {
   level: number;
   semester: number;
   credit_units: number;
-  description: string;
-  is_active: boolean;
+  department_id: number;
   department_name: string;
+  college_id: number;
   college_name: string;
+  college_abbreviation: string;
+  hod_id: number;
   hod_name: string;
+  description: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
 interface StudyUnit {
   id: number;
+  course_id: number;
   code: string;
   name: string;
+  description: string | null;
   sequence_order: number;
   is_active: boolean;
   questions_count: number;
 }
 
-interface Stats {
-  total_study_units: number;
-  total_questions: number;
-  total_papers: number;
-  active_lecturers: number;
+interface User {
+  role: string;
 }
 
-export default function CourseDetailPage() {
+export default function CourseDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const courseId = params.id as string;
 
   const [course, setCourse] = useState<Course | null>(null);
   const [studyUnits, setStudyUnits] = useState<StudyUnit[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'overview' | 'units'>('overview');
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (courseId) {
-      fetchCourseData();
-    }
+    fetchData();
   }, [courseId]);
 
-  const fetchCourseData = async () => {
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId !== null && !(event.target as Element).closest('.menu-container')) {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openMenuId]);
+
+  const fetchData = async () => {
     try {
-      const [courseRes, unitsRes, statsRes] = await Promise.all([
+      const [userRes, courseRes, unitsRes] = await Promise.all([
+        fetch('/api/auth/me'),
         fetch(`/api/courses/${courseId}`),
         fetch(`/api/courses/${courseId}/study-units`),
-        fetch(`/api/courses/${courseId}/stats`),
       ]);
 
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        setUser(userData.user);
+      }
+
       if (courseRes.ok) {
-        const data = await courseRes.json();
-        setCourse(data.course);
+        const courseData = await courseRes.json();
+        setCourse(courseData.course);
+      } else {
+        router.push('/courses');
       }
 
       if (unitsRes.ok) {
-        const data = await unitsRes.json();
-        setStudyUnits(data.study_units || []);
-      }
-
-      if (statsRes.ok) {
-        const data = await statsRes.json();
-        setStats(data.stats);
+        const unitsData = await unitsRes.json();
+        setStudyUnits(unitsData.studyUnits || []);
       }
     } catch (error) {
-      console.error('Failed to fetch course data:', error);
+      console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteCourse = async () => {
-    if (!confirm('Are you sure you want to delete this course? All study units and associated data will be permanently deleted.')) {
+  const handleArchiveUnit = async (unitId: number, currentStatus: boolean) => {
+    const action = currentStatus ? 'archive' : 'activate';
+    if (!confirm(`Are you sure you want to ${action} this study unit?`)) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/courses/${courseId}`, {
-        method: 'DELETE',
+      const response = await fetch(`/api/courses/${courseId}/study-units/${unitId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          is_active: !currentStatus,
+        }),
       });
 
       if (response.ok) {
-        alert('Course deleted successfully');
-        router.push('/courses');
+        setStudyUnits(studyUnits.map((u) => 
+          u.id === unitId ? { ...u, is_active: !currentStatus } : u
+        ));
+        alert(`Study unit ${action}d successfully`);
       } else {
         const error = await response.json();
-        alert(error.error || 'Failed to delete course');
+        alert(error.error || `Failed to ${action} study unit`);
       }
     } catch (error) {
-      console.error('Delete error:', error);
-      alert('Failed to delete course');
+      console.error('Archive error:', error);
+      alert(`Failed to ${action} study unit`);
     }
+    setOpenMenuId(null);
   };
 
-  const toggleCourseStatus = async () => {
-    if (!course) return;
-
-    try {
-      const response = await fetch(`/api/courses/${courseId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !course.is_active }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCourse(data.course);
-        alert(`Course ${data.course.is_active ? 'activated' : 'deactivated'} successfully`);
-      }
-    } catch (error) {
-      console.error('Toggle status error:', error);
-    }
+  const toggleMenu = (unitId: number) => {
+    setOpenMenuId(openMenuId === unitId ? null : unitId);
   };
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
+      <div className="flex h-96 items-center justify-center lg:pl-64">
         <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
       </div>
     );
@@ -136,225 +146,339 @@ export default function CourseDetailPage() {
 
   if (!course) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-800">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Course not found</h2>
-        <Link href="/courses" className="mt-4 inline-block text-blue-600 hover:text-blue-700">
-          ← Back to Courses
-        </Link>
+      <div className="flex h-96 items-center justify-center lg:pl-64">
+        <div className="text-center">
+          <div className="text-6xl">❌</div>
+          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+            Course not found
+          </h3>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 lg:pl-64">
       {/* Header */}
-      <div>
-        <Link
-          href="/courses"
-          className="mb-4 inline-flex items-center text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+<div className="flex items-center justify-between gap-4">
+  {/* LEFT SIDE */}
+  <div className="flex items-center gap-3">
+    <Link
+      href="/courses"
+      className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+    >
+      <svg
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 19l-7-7 7-7"
+        />
+      </svg>
+    </Link>
+
+    <div className="flex flex-col">
+      <div className="flex items-center gap-3">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          {course.code}
+        </h1>
+
+        <span
+          className={`rounded-full px-3 py-1 text-sm font-medium ${
+            course.is_active
+              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+          }`}
         >
-          ← Back to Courses
-        </Link>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                {course.code}
-              </h1>
-              <span
-                className={`rounded-full px-3 py-1 text-sm font-medium ${
-                  course.is_active
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                }`}
-              >
-                {course.is_active ? 'Active' : 'Inactive'}
-              </span>
-            </div>
-            <h2 className="mt-2 text-xl text-gray-700 dark:text-gray-300">{course.title}</h2>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={`/courses/edit/${courseId}`}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
-            >
-              ✏️ Edit
-            </Link>
-            <button
-              onClick={toggleCourseStatus}
-              className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-yellow-700"
-            >
-              {course.is_active ? '❌ Deactivate' : '✅ Activate'}
-            </button>
-            <button
-              onClick={handleDeleteCourse}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-            >
-              🗑️ Delete
-            </button>
-          </div>
-        </div>
+          {course.is_active ? "Active" : "Inactive"}
+        </span>
       </div>
 
-      {/* Stats */}
-      {stats && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {stats.total_study_units}
+      <p className="text-lg text-gray-600 dark:text-gray-400">
+        {course.title}
+      </p>
+    </div>
+  </div>
+
+  {/* RIGHT SIDE BUTTON */}
+  <Link
+    href={`/courses/edit/${course.id}`}
+    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+  >
+    ✏️ Edit Course
+  </Link>
+</div>
+
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium ${
+              activeTab === 'overview'
+                ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('units')}
+            className={`whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium ${
+              activeTab === 'units'
+                ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Study Units ({studyUnits.length})
+          </button>
+        </nav>
+      </div>
+
+      {/* Overview Tab */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          {/* Course Information */}
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
+              Course Information
+            </h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Course Code
+                </label>
+                <p className="mt-1 text-gray-900 dark:text-white">{course.code}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Course Title
+                </label>
+                <p className="mt-1 text-gray-900 dark:text-white">{course.title}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Level
+                </label>
+                <p className="mt-1 text-gray-900 dark:text-white">Level {course.level}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Semester
+                </label>
+                <p className="mt-1 text-gray-900 dark:text-white">Semester {course.semester}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Credit Units
+                </label>
+                <p className="mt-1 text-gray-900 dark:text-white">{course.credit_units} CU</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Department
+                </label>
+                <p className="mt-1 text-gray-900 dark:text-white">{course.department_name}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  College
+                </label>
+                <p className="mt-1 text-gray-900 dark:text-white">
+                  {course.college_name} ({course.college_abbreviation})
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Head of Department
+                </label>
+                <p className="mt-1 text-gray-900 dark:text-white">{course.hod_name}</p>
+              </div>
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Study Units</div>
+            {course.description && (
+              <div className="mt-4">
+                <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Description
+                </label>
+                <p className="mt-1 text-gray-900 dark:text-white">{course.description}</p>
+              </div>
+            )}
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {stats.total_questions}
+
+          {/* Stats */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                {studyUnits.length}
+              </div>
+              <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">Study Units</div>
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Questions</div>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-              {stats.total_papers}
+            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                {studyUnits.filter((u) => u.is_active).length}
+              </div>
+              <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">Active Units</div>
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Exam Papers</div>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-              {stats.active_lecturers}
+            <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                {studyUnits.reduce((sum, u) => sum + (u.questions_count || 0), 0)}
+              </div>
+              <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">Total Questions</div>
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Active Lecturers</div>
           </div>
         </div>
       )}
 
-      {/* Course Details */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-          Course Information
-        </h3>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              College:
-            </span>
-            <p className="mt-1 text-gray-900 dark:text-white">
-              {course.college_name || 'N/A'}
-            </p>
+      {/* Study Units Tab */}
+      {activeTab === 'units' && (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Study Units
+            </h2>
+            <Link
+              href={`/courses/${course.id}/study-units/create`}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+            >
+              ➕ Add Study Unit
+            </Link>
           </div>
-          <div>
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Department:
-            </span>
-            <p className="mt-1 text-gray-900 dark:text-white">
-              {course.department_name || 'N/A'}
-            </p>
-          </div>
-          <div>
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Level & Semester:
-            </span>
-            <p className="mt-1 text-gray-900 dark:text-white">
-              Level {course.level}, Semester {course.semester}
-            </p>
-          </div>
-          <div>
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Credit Units:
-            </span>
-            <p className="mt-1 text-gray-900 dark:text-white">{course.credit_units} CU</p>
-          </div>
-          <div className="md:col-span-2">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              HOD:
-            </span>
-            <p className="mt-1 text-gray-900 dark:text-white">{course.hod_name || 'Not assigned'}</p>
-          </div>
-          {course.description && (
-            <div className="md:col-span-2">
-              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Description:
-              </span>
-              <p className="mt-1 text-gray-900 dark:text-white">{course.description}</p>
+
+          {/* Study Units List */}
+          {studyUnits.length === 0 ? (
+            <div className="rounded-lg border border-gray-200 bg-white p-12 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="text-6xl">📚</div>
+              <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+                No study units yet
+              </h3>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Get started by creating your first study unit for this course
+              </p>
+              <Link
+                href={`/courses/${course.id}/study-units/create`}
+                className="mt-4 inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                Create Study Unit
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {studyUnits.map((unit) => (
+                <div
+                  key={unit.id}
+                  className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        {/* Sequence Order Badge */}
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600 dark:bg-blue-900 dark:text-blue-200">
+                          {unit.sequence_order}
+                        </span>
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/courses/${course.id}/study-units/${unit.id}`}
+                              className="text-lg font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                            >
+                              {unit.code}
+                            </Link>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                unit.is_active
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                              }`}
+                            >
+                              {unit.is_active ? 'Active' : 'Archived'}
+                            </span>
+                          </div>
+                          <h3 className="mt-1 font-medium text-gray-900 dark:text-white">
+                            {unit.name}
+                          </h3>
+                        </div>
+                      </div>
+
+                      {unit.description && (
+                        <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                          {unit.description}
+                        </p>
+                      )}
+                      
+                      <div className="mt-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <span className="font-medium text-purple-600 dark:text-purple-400">
+                          {unit.questions_count || 0} Questions
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Three-dot Menu */}
+                    <div className="menu-container relative ml-2">
+                      <button
+                        onClick={() => toggleMenu(unit.id)}
+                        className="rounded-lg p-1 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                      >
+                        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                        </svg>
+                      </button>
+
+                      {openMenuId === unit.id && (
+                        <div className="absolute right-0 top-8 z-10 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
+                          <Link
+                            href={`/courses/${course.id}/study-units/${unit.id}`}
+                            className="flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                            onClick={() => setOpenMenuId(null)}
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View Details
+                          </Link>
+                          <Link
+                            href={`/courses/${course.id}/study-units/${unit.id}/edit`}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                            onClick={() => setOpenMenuId(null)}
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
+                          </Link>
+                          {user?.role === 'admin' && (
+                            <button
+                              onClick={() => handleArchiveUnit(unit.id, unit.is_active)}
+                              className={`flex w-full items-center gap-2 rounded-b-lg px-4 py-2 text-sm ${
+                                unit.is_active
+                                  ? 'text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20'
+                                  : 'text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20'
+                              }`}
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                              </svg>
+                              {unit.is_active ? 'Archive' : 'Activate'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
-      </div>
-
-      {/* Study Units */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Study Units</h3>
-          <Link
-            href={`/courses/${courseId}/study-units/create`}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700"
-          >
-            ➕ Add Study Unit
-          </Link>
-        </div>
-
-        {studyUnits.length === 0 ? (
-          <div className="py-12 text-center">
-            <div className="text-5xl">📚</div>
-            <h4 className="mt-4 font-medium text-gray-900 dark:text-white">
-              No study units yet
-            </h4>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Add study units to organize course content
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {studyUnits.map((unit) => (
-              <Link
-                key={unit.id}
-                href={`/courses/${courseId}/study-units/${unit.id}`}
-                className="block rounded-lg border border-gray-200 p-4 transition hover:border-blue-500 hover:shadow-md dark:border-gray-700 dark:hover:border-blue-500"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-blue-600 dark:text-blue-400">
-                        {unit.code}
-                      </span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          unit.is_active
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {unit.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <h4 className="mt-1 text-gray-900 dark:text-white">{unit.name}</h4>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                      {unit.questions_count} question{unit.questions_count !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <div className="text-2xl text-gray-400">→</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Metadata */}
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="flex flex-wrap gap-4">
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Created:</span>{' '}
-            <span className="text-gray-900 dark:text-white">
-              {new Date(course.created_at).toLocaleString()}
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-600 dark:text-gray-400">Last Updated:</span>{' '}
-            <span className="text-gray-900 dark:text-white">
-              {new Date(course.updated_at).toLocaleString()}
-            </span>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

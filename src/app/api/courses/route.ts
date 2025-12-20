@@ -4,57 +4,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const user = await verifyAuth(req);
+    const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const departmentId = searchParams.get('department_id');
-    const collegeId = searchParams.get('college_id');
-    const isActive = searchParams.get('is_active');
-
-    let sql = `
+    // Get all courses with related information
+    const courses = await query<any[]>(`
       SELECT 
         c.*,
         d.name as department_name,
         col.name as college_name,
-        col.abbrv as college_abbreviation,
+        col.abbreviation as college_abbreviation,
         CONCAT(u.first_name, ' ', u.last_name) as hod_name,
         (SELECT COUNT(*) FROM study_units WHERE course_id = c.id AND is_active = TRUE) as study_units_count
       FROM courses c
       LEFT JOIN departments d ON c.department_id = d.id
       LEFT JOIN colleges col ON c.college_id = col.id
       LEFT JOIN users u ON c.hod_id = u.id
-      WHERE 1=1
-    `;
-
-    const params: any[] = [];
-
-    if (departmentId) {
-      sql += ' AND c.department_id = ?';
-      params.push(departmentId);
-    }
-
-    if (collegeId) {
-      sql += ' AND c.college_id = ?';
-      params.push(collegeId);
-    }
-
-    if (isActive !== null && isActive !== undefined) {
-      sql += ' AND c.is_active = ?';
-      params.push(isActive === 'true' ? 1 : 0);
-    }
-
-    sql += ' ORDER BY c.code ASC';
-
-    const courses = await query(sql, params);
+      ORDER BY c.code ASC
+    `);
 
     return NextResponse.json({ courses });
   } catch (error) {
-    console.error('Courses fetch error:', error);
+    console.error('Failed to fetch courses:', error);
     return NextResponse.json(
       { error: 'Failed to fetch courses' },
       { status: 500 }
@@ -62,19 +37,19 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const user = await verifyAuth(req);
+    const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Only HOD, Dean, and Admin can create courses
-    if (!['hod', 'dean', 'admin'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    // Only HODs and admins can create courses
+    if (!['hod', 'admin'].includes(user.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const body = await req.json();
+    const body = await request.json();
     const {
       code,
       title,
@@ -87,7 +62,7 @@ export async function POST(req: NextRequest) {
       is_active = true,
     } = body;
 
-    // Validation
+    // Validate required fields
     if (!code || !title || !level || !semester || !credit_units) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -96,23 +71,24 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if course code already exists
-    const existing = await query(
+    const existing = await query<any[]>(
       'SELECT id FROM courses WHERE code = ?',
       [code]
     );
 
-    if (Array.isArray(existing) && existing.length > 0) {
+    if (existing.length > 0) {
       return NextResponse.json(
         { error: 'Course code already exists' },
-        { status: 409 }
+        { status: 400 }
       );
     }
 
-    const result = await query(
-      `INSERT INTO courses (
-        code, title, level, semester, credit_units,
-        college_id, department_id, hod_id, description, is_active
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    // Insert course
+    const result = await query<any>(
+      `INSERT INTO courses 
+        (code, title, level, semester, credit_units, college_id, department_id, 
+         hod_id, description, is_active) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         code,
         title,
@@ -121,34 +97,21 @@ export async function POST(req: NextRequest) {
         credit_units,
         college_id || null,
         department_id || null,
-        user.id,
+        user.role === 'hod' ? user.id : null,
         description || null,
-        is_active ? 1 : 0,
+        is_active,
       ]
     );
 
-    const courseId = (result as any).insertId;
-
     // Fetch the created course
-    const courses = await query(
-      `SELECT 
-        c.*,
-        d.name as department_name,
-        col.name as college_name,
-        CONCAT(u.first_name, ' ', u.last_name) as hod_name
-      FROM courses c
-      LEFT JOIN departments d ON c.department_id = d.id
-      LEFT JOIN colleges col ON c.college_id = col.id
-      LEFT JOIN users u ON c.hod_id = u.id
-      WHERE c.id = ?`,
-      [courseId]
+    const course = await query<any[]>(
+      'SELECT * FROM courses WHERE id = ?',
+      [result.insertId]
     );
 
-    const course = Array.isArray(courses) ? courses[0] : null;
-
-    return NextResponse.json({ course }, { status: 201 });
+    return NextResponse.json({ course: course[0] }, { status: 201 });
   } catch (error) {
-    console.error('Course creation error:', error);
+    console.error('Failed to create course:', error);
     return NextResponse.json(
       { error: 'Failed to create course' },
       { status: 500 }
