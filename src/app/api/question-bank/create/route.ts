@@ -11,113 +11,106 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { role, id: user_id, department_id } = session;
     const body = await request.json();
-
     const {
       course_id,
       study_unit_id,
-      question_type,
-      difficulty_level,
       question_text,
+      question_type,
+      marks,
+      difficulty_level,
+      bloom_level,
       options,
       correct_answer,
-      marks,
-      time_allocation,
-      learning_outcome,
-      keywords,
-      bloom_taxonomy,
+      answer_explanation,
       tags,
     } = body;
 
-    // Required fields check
-    if (!course_id || !question_type || !question_text || !marks) {
+    // Validation
+    if (!course_id || !question_text || !question_type || !marks) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: course_id, question_text, question_type, and marks are required' },
         { status: 400 }
       );
     }
 
-    // ----- ROLE PERMISSIONS -----
+    if (marks < 1) {
+      return NextResponse.json(
+        { error: 'Marks must be at least 1' },
+        { status: 400 }
+      );
+    }
 
-    if (role === 'lecturer') {
+    if (question_type === 'Multiple Choice' && !correct_answer) {
+      return NextResponse.json(
+        { error: 'Correct answer is required for multiple choice questions' },
+        { status: 400 }
+      );
+    }
+
+    // Check if user has permission to create questions for this course
+    if (session.role === 'lecturer') {
       const permissions = await query<any[]>(
-        `SELECT id FROM lecturer_permissions 
-         WHERE lecturer_id = ? AND course_id = ? 
-         AND is_active = TRUE AND can_add_questions = TRUE`,
-        [user_id, course_id]
+        `SELECT 1 FROM lecturer_permissions 
+         WHERE lecturer_id = ? AND course_id = ? AND is_active = TRUE`,
+        [session.id, course_id]
       );
 
       if (permissions.length === 0) {
         return NextResponse.json(
-          { error: 'You do not have permission to add questions for this course' },
+          { error: 'You do not have permission to create questions for this course' },
           { status: 403 }
         );
       }
     }
 
-    if (role === 'hod') {
-      const courses = await query<any[]>(
-        `SELECT id FROM courses WHERE id = ? AND department_id = ?`,
-        [course_id, department_id]
-      );
-
-      if (courses.length === 0) {
-        return NextResponse.json(
-          { error: 'Course not found in your department' },
-          { status: 403 }
-        );
-      }
-    }
-
-    // ----- INSERT QUESTION -----
-
+    // Insert question using the questions table structure
     const result = await query<any>(
       `INSERT INTO questions (
-        course_id, study_unit_id, created_by, question_type, difficulty_level,
-        question_text, options, correct_answer, marks, time_allocation,
-        learning_outcome, keywords, bloom_taxonomy, tags,
-        approved_by, approved_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        course_id,
+        study_unit_id,
+        question_text,
+        question_type,
+        marks,
+        difficulty_level,
+        bloom_taxonomy,
+        options,
+        correct_answer,
+        learning_outcome,
+        keywords,
+        tags,
+        created_by,
+        is_active,
+        usage_count
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         course_id,
         study_unit_id || null,
-        user_id,
-        question_type,
-        difficulty_level || 'medium',
         question_text,
+        question_type,
+        marks,
+        difficulty_level || 'Medium',
+        bloom_level || 'Understand',
         options ? JSON.stringify(options) : null,
         correct_answer || null,
-        marks,
-        time_allocation || null,
-        learning_outcome || null,
-        keywords || null,
-        bloom_taxonomy || 'understand',
-        tags ? JSON.stringify(tags) : null,
-        role === 'hod' ? user_id : null,
-        role === 'hod' ? new Date() : null,
+        answer_explanation || null,
+        tags || null,
+        tags || null,
+        session.id,
+        1, // is_active
+        0, // usage_count
       ]
     );
 
-    const questionId = result.insertId;
-
-    // ----- AUDIT LOG -----
-
-    await query(
-      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, new_values)
-       VALUES (?, 'create', 'question', ?, ?)`,
-      [user_id, questionId, JSON.stringify(body)]
-    );
-
     return NextResponse.json({
+      success: true,
       message: 'Question created successfully',
-      questionId,
+      questionId: result.insertId,
     });
   } catch (error) {
-    console.error('Error creating question:', error);
+    console.error('POST /api/question-bank/create error:', error);
     return NextResponse.json(
-      { error: 'Failed to create question' },
+      { error: 'Failed to create question', details: String(error) },
       { status: 500 }
     );
   }

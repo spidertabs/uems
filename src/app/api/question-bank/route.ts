@@ -17,32 +17,30 @@ export async function GET(request: NextRequest) {
       SELECT 
         q.id,
         q.course_id,
-        c.code as course_code,
-        c.title as course_name,
-        su.name as study_unit_name,
-        q.question_type,
-        q.difficulty_level,
+        q.study_unit_id,
         q.question_text,
+        q.question_type,
+        q.marks,
+        q.difficulty_level,
+        q.bloom_taxonomy as bloom_level,
         q.options,
         q.correct_answer,
-        q.marks,
-        q.time_allocation,
-        q.learning_outcome,
-        q.keywords,
-        q.bloom_taxonomy,
+        q.learning_outcome as answer_explanation,
         q.tags,
-        q.usage_count,
         q.is_active,
-        CONCAT(creator.first_name, ' ', creator.last_name) as created_by_name,
-        CONCAT(approver.first_name, ' ', approver.last_name) as approved_by_name,
-        q.approved_at,
+        c.code AS course_code,
+        c.title AS course_title,
+        su.name AS study_unit_title,
+        CONCAT(creator.first_name, ' ', creator.last_name) AS created_by_name,
         q.created_at,
-        q.updated_at
+        q.updated_at,
+        q.usage_count,
+        NULL as last_used
       FROM questions q
       JOIN courses c ON q.course_id = c.id
       LEFT JOIN study_units su ON q.study_unit_id = su.id
       LEFT JOIN users creator ON q.created_by = creator.id
-      LEFT JOIN users approver ON q.approved_by = approver.id
+      WHERE q.is_active = TRUE
     `;
 
     const params: any[] = [];
@@ -51,7 +49,7 @@ export async function GET(request: NextRequest) {
     if (role === 'lecturer') {
       // Lecturers see questions from courses they have permission for or created
       sql += `
-        WHERE (q.created_by = ? OR EXISTS (
+        AND (q.created_by = ? OR EXISTS (
           SELECT 1 FROM lecturer_permissions lp 
           WHERE lp.lecturer_id = ? 
           AND lp.course_id = q.course_id 
@@ -61,34 +59,37 @@ export async function GET(request: NextRequest) {
       params.push(user_id, user_id);
     } else if (role === 'hod') {
       // HODs see all questions in their department
-      sql += ` WHERE c.department_id = ?`;
+      sql += ` AND c.department_id = ?`;
       params.push(department_id);
     } else if (role === 'dean') {
       // Deans see all questions in their college
-      sql += ` WHERE c.college_id = ?`;
+      sql += ` AND c.college_id = ?`;
       params.push(college_id);
     }
-    // Admin sees all questions (no filter)
+    // Admin sees all questions (no additional filter)
 
     sql += ` ORDER BY q.created_at DESC`;
 
+    console.log('Executing question query with role:', role, 'params:', params);
     const questions = await query<any[]>(sql, params);
+    console.log('Found questions:', questions.length);
 
     // Parse JSON fields
     const processedQuestions = questions.map(q => ({
       ...q,
-      options: q.options ? JSON.parse(q.options) : null,
-      tags: q.tags ? JSON.parse(q.tags) : null,
+      options: q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : null,
+      tags: q.tags ? (typeof q.tags === 'string' ? q.tags : JSON.parse(q.tags)) : null,
     }));
 
     return NextResponse.json({ 
+      success: true,
       questions: processedQuestions,
-      count: processedQuestions.length 
+      count: processedQuestions.length
     });
   } catch (error) {
-    console.error('Error fetching questions:', error);
+    console.error('GET /api/question-bank error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch questions' },
+      { error: 'Failed to fetch questions', details: String(error) },
       { status: 500 }
     );
   }

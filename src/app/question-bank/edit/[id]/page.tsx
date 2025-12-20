@@ -1,10 +1,10 @@
-/* eslint-disable react/no-unescaped-entities */
-/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/exhaustive-deps */ 
 // src/app/question-bank/edit/[id]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Link from 'next/link';
 
 interface Course {
   id: number;
@@ -14,55 +14,36 @@ interface Course {
 
 interface StudyUnit {
   id: number;
-  code: string;
-  name: string;
-}
-
-interface Question {
-  id: number;
+  title: string;
   course_id: number;
-  study_unit_id?: number;
-  question_type: string;
-  difficulty_level: string;
-  question_text: string;
-  options?: string[];
-  correct_answer?: string;
-  marks: number;
-  time_allocation?: number;
-  learning_outcome?: string;
-  keywords?: string;
-  bloom_taxonomy?: string;
-  tags?: string[];
-  is_active: boolean;
 }
 
 export default function EditQuestionPage() {
   const router = useRouter();
   const params = useParams();
-  const questionId = params.id as string;
+  const questionId = params.id;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [studyUnits, setStudyUnits] = useState<StudyUnit[]>([]);
-  const [question, setQuestion] = useState<Question | null>(null);
-  
+  const [filteredStudyUnits, setFilteredStudyUnits] = useState<StudyUnit[]>([]);
+
   const [formData, setFormData] = useState({
     course_id: '',
     study_unit_id: '',
-    question_type: 'multiple_choice',
-    difficulty_level: 'medium',
     question_text: '',
+    question_type: 'Multiple Choice',
+    marks: 1,
+    difficulty_level: 'Medium',
+    bloom_level: 'Understand',
     options: ['', '', '', ''],
     correct_answer: '',
-    marks: 1,
-    time_allocation: 5,
-    learning_outcome: '',
-    keywords: '',
-    bloom_taxonomy: 'understand',
+    answer_explanation: '',
     tags: '',
-    is_active: true,
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchData();
@@ -70,75 +51,66 @@ export default function EditQuestionPage() {
 
   useEffect(() => {
     if (formData.course_id) {
-      fetchStudyUnits(formData.course_id);
+      const filtered = studyUnits.filter(
+        (unit) => unit.course_id === parseInt(formData.course_id)
+      );
+      setFilteredStudyUnits(filtered);
+    } else {
+      setFilteredStudyUnits([]);
     }
-  }, [formData.course_id]);
+  }, [formData.course_id, studyUnits]);
 
   const fetchData = async () => {
     try {
-      const [coursesRes, questionRes] = await Promise.all([
-        fetch('/api/courses'),
+      const [questionRes, coursesRes, studyUnitsRes] = await Promise.all([
         fetch(`/api/question-bank/${questionId}`),
+        fetch('/api/courses'),
+        fetch('/api/study-units'),
       ]);
 
-      if (coursesRes.ok) {
-        const coursesData = await coursesRes.json();
-        setCourses(coursesData.courses || []);
-      }
-
       if (questionRes.ok) {
-        const questionData = await questionRes.json();
-        const q = questionData.question;
-        setQuestion(q);
+        const data = await questionRes.json();
+        const question = data.question;
 
         setFormData({
-          course_id: q.course_id?.toString() || '',
-          study_unit_id: q.study_unit_id?.toString() || '',
-          question_type: q.question_type,
-          difficulty_level: q.difficulty_level,
-          question_text: q.question_text,
-          options: q.options || ['', '', '', ''],
-          correct_answer: q.correct_answer || '',
-          marks: q.marks,
-          time_allocation: q.time_allocation || 5,
-          learning_outcome: q.learning_outcome || '',
-          keywords: q.keywords || '',
-          bloom_taxonomy: q.bloom_taxonomy || 'understand',
-          tags: q.tags ? q.tags.join(', ') : '',
-          is_active: q.is_active,
+          course_id: question.course_id?.toString() || '',
+          study_unit_id: question.study_unit_id?.toString() || '',
+          question_text: question.question_text || '',
+          question_type: question.question_type || 'Multiple Choice',
+          marks: question.marks || 1,
+          difficulty_level: question.difficulty_level || 'Medium',
+          bloom_level: question.bloom_level || 'Understand',
+          options: question.options ? JSON.parse(question.options) : ['', '', '', ''],
+          correct_answer: question.correct_answer || '',
+          answer_explanation: question.answer_explanation || '',
+          tags: question.tags || '',
         });
-      } else {
-        alert('Question not found');
-        router.push('/question-bank');
+      }
+
+      if (coursesRes.ok) {
+        const data = await coursesRes.json();
+        setCourses(data.courses || []);
+      }
+
+      if (studyUnitsRes.ok) {
+        const data = await studyUnitsRes.json();
+        setStudyUnits(data.studyUnits || []);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      alert('Failed to load question');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchStudyUnits = async (courseId: string) => {
-    try {
-      const response = await fetch(`/api/courses/${courseId}/study-units`);
-      if (response.ok) {
-        const data = await response.json();
-        setStudyUnits(data.study_units || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch study units:', error);
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
     }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    const checked = (e.target as HTMLInputElement).checked;
-    
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
   };
 
   const handleOptionChange = (index: number, value: string) => {
@@ -155,95 +127,143 @@ export default function EditQuestionPage() {
   };
 
   const removeOption = (index: number) => {
-    if (formData.options.length <= 2) {
-      alert('At least 2 options required');
-      return;
+    if (formData.options.length > 2) {
+      const newOptions = formData.options.filter((_, i) => i !== index);
+      setFormData((prev) => ({ ...prev, options: newOptions }));
     }
-    const newOptions = formData.options.filter((_, i) => i !== index);
-    setFormData((prev) => ({ ...prev, options: newOptions }));
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.course_id) newErrors.course_id = 'Course is required';
+    if (!formData.question_text.trim()) newErrors.question_text = 'Question text is required';
+    if (formData.marks < 1) newErrors.marks = 'Marks must be at least 1';
+
+    if (formData.question_type === 'Multiple Choice') {
+      const validOptions = formData.options.filter((opt) => opt.trim());
+      if (validOptions.length < 2) {
+        newErrors.options = 'At least 2 options are required';
+      }
+      if (!formData.correct_answer.trim()) {
+        newErrors.correct_answer = 'Correct answer is required';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validate()) return;
+
     setSaving(true);
-
     try {
-      const payload = {
-        ...formData,
-        course_id: parseInt(formData.course_id),
-        study_unit_id: formData.study_unit_id ? parseInt(formData.study_unit_id) : null,
-        marks: parseInt(formData.marks.toString()),
-        time_allocation: formData.time_allocation ? parseInt(formData.time_allocation.toString()) : null,
-        options: formData.question_type === 'multiple_choice' ? formData.options.filter(opt => opt.trim()) : null,
-        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(Boolean) : null,
-      };
-
       const response = await fetch(`/api/question-bank/${questionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...formData,
+          study_unit_id: formData.study_unit_id || null,
+          options:
+            formData.question_type === 'Multiple Choice'
+              ? formData.options.filter((opt) => opt.trim())
+              : null,
+          correct_answer: formData.correct_answer || null,
+          answer_explanation: formData.answer_explanation || null,
+          tags: formData.tags || null,
+        }),
       });
 
       if (response.ok) {
-        alert('Question updated successfully!');
         router.push('/question-bank');
       } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to update question');
+        const data = await response.json();
+        alert(data.error || 'Failed to update question');
       }
     } catch (error) {
-      console.error('Submit error:', error);
+      console.error('Submit failed:', error);
       alert('Failed to update question');
     } finally {
       setSaving(false);
     }
   };
 
+  const questionTypes = [
+    'Multiple Choice',
+    'Short Answer',
+    'Essay',
+    'Problem Solving',
+    'Practical',
+  ];
+
+  const difficultyLevels = ['Easy', 'Medium', 'Hard'];
+
+  const bloomLevels = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create'];
+
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
+      <div className="flex h-96 items-center justify-center lg:pl-64">
         <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  if (!question) {
-    return null;
-  }
-
   return (
-    <div className="mx-auto max-w-4xl space-y-6 lg:pl-64">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Edit Question</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Update question details
-        </p>
+    <div className="space-y-6 lg:pl-64">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Edit Question</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Update question details
+          </p>
+        </div>
+
+        <Link
+          href="/question-bank"
+          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
+          ← Back
+        </Link>
       </div>
 
+      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Course & Study Unit */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Course Information</h2>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+            Course Information
+          </h2>
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Course *
+                Course <span className="text-red-500">*</span>
               </label>
               <select
                 name="course_id"
                 value={formData.course_id}
-                onChange={handleInputChange}
-                required
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                onChange={handleChange}
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                  errors.course_id
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
+                } dark:bg-gray-700 dark:text-white`}
               >
-                <option value="">Select course</option>
+                <option value="">Select a course</option>
                 {courses.map((course) => (
                   <option key={course.id} value={course.id}>
                     {course.code} - {course.title}
                   </option>
                 ))}
               </select>
+              {errors.course_id && (
+                <p className="mt-1 text-xs text-red-500">{errors.course_id}</p>
+              )}
             </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Study Unit (Optional)
@@ -251,14 +271,14 @@ export default function EditQuestionPage() {
               <select
                 name="study_unit_id"
                 value={formData.study_unit_id}
-                onChange={handleInputChange}
-                disabled={!formData.course_id || studyUnits.length === 0}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800"
+                onChange={handleChange}
+                disabled={!formData.course_id}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800"
               >
-                <option value="">Select study unit</option>
-                {studyUnits.map((unit) => (
+                <option value="">Select a study unit</option>
+                {filteredStudyUnits.map((unit) => (
                   <option key={unit.id} value={unit.id}>
-                    {unit.code} - {unit.name}
+                    {unit.title}
                   </option>
                 ))}
               </select>
@@ -266,233 +286,224 @@ export default function EditQuestionPage() {
           </div>
         </div>
 
-        {/* Question Details */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Question Details</h2>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+            Question Details
+          </h2>
+
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Question Type *
-                </label>
-                <select
-                  name="question_type"
-                  value={formData.question_type}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="multiple_choice">Multiple Choice</option>
-                  <option value="true_false">True/False</option>
-                  <option value="short_answer">Short Answer</option>
-                  <option value="essay">Essay</option>
-                  <option value="practical">Practical</option>
-                  <option value="case_study">Case Study</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Difficulty Level *
-                </label>
-                <select
-                  name="difficulty_level"
-                  value={formData.difficulty_level}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Bloom's Taxonomy
-                </label>
-                <select
-                  name="bloom_taxonomy"
-                  value={formData.bloom_taxonomy}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="remember">Remember</option>
-                  <option value="understand">Understand</option>
-                  <option value="apply">Apply</option>
-                  <option value="analyze">Analyze</option>
-                  <option value="evaluate">Evaluate</option>
-                  <option value="create">Create</option>
-                </select>
-              </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Question Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="question_type"
+                value={formData.question_type}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+                {questionTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Question Text *
+                Question Text <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="question_text"
                 value={formData.question_text}
-                onChange={handleInputChange}
-                required
+                onChange={handleChange}
                 rows={4}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                  errors.question_text
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
+                } dark:bg-gray-700 dark:text-white`}
+                placeholder="Enter the question text..."
               />
+              {errors.question_text && (
+                <p className="mt-1 text-xs text-red-500">{errors.question_text}</p>
+              )}
             </div>
 
-            {formData.question_type === 'multiple_choice' && (
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Options *
-                </label>
-                <div className="space-y-2">
-                  {formData.options.map((option, index) => (
-                    <div key={index} className="flex gap-2">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-sm font-medium dark:bg-gray-700">
-                        {String.fromCharCode(65 + index)}
-                      </span>
-                      <input
-                        type="text"
-                        value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
-                        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      />
-                      {formData.options.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => removeOption(index)}
-                          className="rounded-lg border border-red-300 px-3 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={addOption}
-                  className="mt-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                >
-                  + Add Option
-                </button>
-              </div>
-            )}
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Correct Answer
-              </label>
-              <input
-                type="text"
-                name="correct_answer"
-                value={formData.correct_answer}
-                onChange={handleInputChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Marks *
+                  Marks <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   name="marks"
                   value={formData.marks}
-                  onChange={handleInputChange}
-                  required
+                  onChange={handleChange}
                   min="1"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                    errors.marks
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
+                  } dark:bg-gray-700 dark:text-white`}
                 />
+                {errors.marks && <p className="mt-1 text-xs text-red-500">{errors.marks}</p>}
               </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Time Allocation (minutes)
+                  Difficulty Level
                 </label>
-                <input
-                  type="number"
-                  name="time_allocation"
-                  value={formData.time_allocation}
-                  onChange={handleInputChange}
-                  min="1"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
+                <select
+                  name="difficulty_level"
+                  value={formData.difficulty_level}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                  {difficultyLevels.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Bloom&apos;s Taxonomy Level
+                </label>
+                <select
+                  name="bloom_level"
+                  value={formData.bloom_level}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                  {bloomLevels.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {formData.question_type === 'Multiple Choice' && (
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+              Answer Options
+            </h2>
+
+            <div className="space-y-3">
+              {formData.options.map((option, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) => handleOptionChange(index, e.target.value)}
+                    placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  />
+                  {formData.options.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => removeOption(index)}
+                      className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+              {errors.options && <p className="text-xs text-red-500">{errors.options}</p>}
+
+              <button
+                type="button"
+                onClick={addOption}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                + Add Option
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Correct Answer <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="correct_answer"
+                value={formData.correct_answer}
+                onChange={handleChange}
+                placeholder="Enter the correct answer (e.g., A or the full text)"
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                  errors.correct_answer
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
+                } dark:bg-gray-700 dark:text-white`}
+              />
+              {errors.correct_answer && (
+                <p className="mt-1 text-xs text-red-500">{errors.correct_answer}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+            Additional Information
+          </h2>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Answer Explanation (Optional)
+              </label>
+              <textarea
+                name="answer_explanation"
+                value={formData.answer_explanation}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                placeholder="Provide an explanation for the correct answer..."
+              />
             </div>
 
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Learning Outcome
+                Tags (Optional)
               </label>
-              <textarea
-                name="learning_outcome"
-                value={formData.learning_outcome}
-                onChange={handleInputChange}
-                rows={2}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Keywords (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  name="keywords"
-                  value={formData.keywords}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Tags (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  name="tags"
-                  value={formData.tags}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center">
               <input
-                type="checkbox"
-                id="is_active"
-                name="is_active"
-                checked={formData.is_active}
-                onChange={handleInputChange}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                type="text"
+                name="tags"
+                value={formData.tags}
+                onChange={handleChange}
+                placeholder="e.g., algebra, functions, derivatives (comma-separated)"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
-              <label htmlFor="is_active" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                Active (available for use in exam papers)
-              </label>
             </div>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex gap-4">
+        <div className="flex justify-end gap-3">
+          <Link
+            href="/question-bank"
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </Link>
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            Cancel
           </button>
         </div>
       </form>

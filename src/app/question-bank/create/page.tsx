@@ -1,9 +1,9 @@
-/* eslint-disable react/no-unescaped-entities */
-// src/app/question-bank/create/page.tsx
+ // src/app/question-bank/create/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface Course {
   id: number;
@@ -13,8 +13,8 @@ interface Course {
 
 interface StudyUnit {
   id: number;
-  code: string;
-  name: string;
+  title: string;
+  course_id: number;
 }
 
 export default function CreateQuestionPage() {
@@ -22,63 +22,68 @@ export default function CreateQuestionPage() {
   const [loading, setLoading] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [studyUnits, setStudyUnits] = useState<StudyUnit[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState('');
-  
+  const [filteredStudyUnits, setFilteredStudyUnits] = useState<StudyUnit[]>([]);
+
   const [formData, setFormData] = useState({
     course_id: '',
     study_unit_id: '',
-    question_type: 'multiple_choice',
-    difficulty_level: 'medium',
     question_text: '',
+    question_type: 'Multiple Choice',
+    marks: 1,
+    difficulty_level: 'Medium',
+    bloom_level: 'Understand',
     options: ['', '', '', ''],
     correct_answer: '',
-    marks: 1,
-    time_allocation: 5,
-    learning_outcome: '',
-    keywords: '',
-    bloom_taxonomy: 'understand',
+    answer_explanation: '',
     tags: '',
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
-    fetchCourses();
+    fetchData();
   }, []);
 
   useEffect(() => {
-    if (selectedCourse) {
-      fetchStudyUnits(selectedCourse);
+    if (formData.course_id) {
+      const filtered = studyUnits.filter(
+        (unit) => unit.course_id === parseInt(formData.course_id)
+      );
+      setFilteredStudyUnits(filtered);
     } else {
-      setStudyUnits([]);
+      setFilteredStudyUnits([]);
     }
-  }, [selectedCourse]);
+  }, [formData.course_id, studyUnits]);
 
-  const fetchCourses = async () => {
+  const fetchData = async () => {
     try {
-      const response = await fetch('/api/courses');
-      if (response.ok) {
-        const data = await response.json();
+      const [coursesRes, studyUnitsRes] = await Promise.all([
+        fetch('/api/courses'),
+        fetch('/api/study-units'),
+      ]);
+
+      if (coursesRes.ok) {
+        const data = await coursesRes.json();
         setCourses(data.courses || []);
       }
-    } catch (error) {
-      console.error('Failed to fetch courses:', error);
-    }
-  };
 
-  const fetchStudyUnits = async (courseId: string) => {
-    try {
-      const response = await fetch(`/api/courses/${courseId}/study-units`);
-      if (response.ok) {
-        const data = await response.json();
-        setStudyUnits(data.study_units || []);
+      if (studyUnitsRes.ok) {
+        const data = await studyUnitsRes.json();
+        setStudyUnits(data.studyUnits || []);
       }
     } catch (error) {
-      console.error('Failed to fetch study units:', error);
+      console.error('Failed to fetch data:', error);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleOptionChange = (index: number, value: string) => {
@@ -95,86 +100,135 @@ export default function CreateQuestionPage() {
   };
 
   const removeOption = (index: number) => {
-    if (formData.options.length <= 2) {
-      alert('At least 2 options required');
-      return;
+    if (formData.options.length > 2) {
+      const newOptions = formData.options.filter((_, i) => i !== index);
+      setFormData((prev) => ({ ...prev, options: newOptions }));
     }
-    const newOptions = formData.options.filter((_, i) => i !== index);
-    setFormData((prev) => ({ ...prev, options: newOptions }));
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.course_id) newErrors.course_id = 'Course is required';
+    if (!formData.question_text.trim()) newErrors.question_text = 'Question text is required';
+    if (formData.marks < 1) newErrors.marks = 'Marks must be at least 1';
+
+    if (formData.question_type === 'Multiple Choice') {
+      const validOptions = formData.options.filter((opt) => opt.trim());
+      if (validOptions.length < 2) {
+        newErrors.options = 'At least 2 options are required';
+      }
+      if (!formData.correct_answer.trim()) {
+        newErrors.correct_answer = 'Correct answer is required';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validate()) return;
+
     setLoading(true);
-
     try {
-      const payload = {
-        ...formData,
-        course_id: parseInt(formData.course_id),
-        study_unit_id: formData.study_unit_id ? parseInt(formData.study_unit_id) : null,
-        marks: parseInt(formData.marks.toString()),
-        time_allocation: formData.time_allocation ? parseInt(formData.time_allocation.toString()) : null,
-        options: formData.question_type === 'multiple_choice' ? formData.options.filter(opt => opt.trim()) : null,
-        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(Boolean) : null,
-      };
-
       const response = await fetch('/api/question-bank/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...formData,
+          study_unit_id: formData.study_unit_id || null,
+          options:
+            formData.question_type === 'Multiple Choice'
+              ? formData.options.filter((opt) => opt.trim())
+              : null,
+          correct_answer: formData.correct_answer || null,
+          answer_explanation: formData.answer_explanation || null,
+          tags: formData.tags || null,
+        }),
       });
 
       if (response.ok) {
-        alert('Question created successfully!');
         router.push('/question-bank');
       } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to create question');
+        const data = await response.json();
+        alert(data.error || 'Failed to create question');
       }
     } catch (error) {
-      console.error('Submit error:', error);
+      console.error('Submit failed:', error);
       alert('Failed to create question');
     } finally {
       setLoading(false);
     }
   };
 
+  const questionTypes = [
+    'Multiple Choice',
+    'Short Answer',
+    'Essay',
+    'Problem Solving',
+    'Practical',
+  ];
+
+  const difficultyLevels = ['Easy', 'Medium', 'Hard'];
+
+  const bloomLevels = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create'];
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6 lg:pl-64">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Add New Question</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Create a new question for the question bank
-        </p>
+    <div className="space-y-6 lg:pl-64">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create Question</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Add a new question to the question bank
+          </p>
+        </div>
+
+        <Link
+          href="/question-bank"
+          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
+          ← Back
+        </Link>
       </div>
 
+      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Course & Study Unit */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Course Information</h2>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+            Course Information
+          </h2>
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Course *
+                Course <span className="text-red-500">*</span>
               </label>
               <select
                 name="course_id"
                 value={formData.course_id}
-                onChange={(e) => {
-                  handleInputChange(e);
-                  setSelectedCourse(e.target.value);
-                }}
-                required
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                onChange={handleChange}
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                  errors.course_id
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
+                } dark:bg-gray-700 dark:text-white`}
               >
-                <option value="">Select course</option>
+                <option value="">Select a course</option>
                 {courses.map((course) => (
                   <option key={course.id} value={course.id}>
                     {course.code} - {course.title}
                   </option>
                 ))}
               </select>
+              {errors.course_id && (
+                <p className="mt-1 text-xs text-red-500">{errors.course_id}</p>
+              )}
             </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Study Unit (Optional)
@@ -182,14 +236,14 @@ export default function CreateQuestionPage() {
               <select
                 name="study_unit_id"
                 value={formData.study_unit_id}
-                onChange={handleInputChange}
-                disabled={!selectedCourse || studyUnits.length === 0}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800"
+                onChange={handleChange}
+                disabled={!formData.course_id}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800"
               >
-                <option value="">Select study unit</option>
-                {studyUnits.map((unit) => (
+                <option value="">Select a study unit</option>
+                {filteredStudyUnits.map((unit) => (
                   <option key={unit.id} value={unit.id}>
-                    {unit.code} - {unit.name}
+                    {unit.title}
                   </option>
                 ))}
               </select>
@@ -197,226 +251,224 @@ export default function CreateQuestionPage() {
           </div>
         </div>
 
-        {/* Question Details */}
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Question Details</h2>
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+            Question Details
+          </h2>
+
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Question Type *
-                </label>
-                <select
-                  name="question_type"
-                  value={formData.question_type}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="multiple_choice">Multiple Choice</option>
-                  <option value="true_false">True/False</option>
-                  <option value="short_answer">Short Answer</option>
-                  <option value="essay">Essay</option>
-                  <option value="practical">Practical</option>
-                  <option value="case_study">Case Study</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Difficulty Level *
-                </label>
-                <select
-                  name="difficulty_level"
-                  value={formData.difficulty_level}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Bloom's Taxonomy
-                </label>
-                <select
-                  name="bloom_taxonomy"
-                  value={formData.bloom_taxonomy}
-                  onChange={handleInputChange}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="remember">Remember</option>
-                  <option value="understand">Understand</option>
-                  <option value="apply">Apply</option>
-                  <option value="analyze">Analyze</option>
-                  <option value="evaluate">Evaluate</option>
-                  <option value="create">Create</option>
-                </select>
-              </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Question Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="question_type"
+                value={formData.question_type}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+                {questionTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Question Text *
+                Question Text <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="question_text"
                 value={formData.question_text}
-                onChange={handleInputChange}
-                required
+                onChange={handleChange}
                 rows={4}
-                placeholder="Enter the question..."
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                  errors.question_text
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
+                } dark:bg-gray-700 dark:text-white`}
+                placeholder="Enter the question text..."
               />
+              {errors.question_text && (
+                <p className="mt-1 text-xs text-red-500">{errors.question_text}</p>
+              )}
             </div>
 
-            {/* MCQ Options */}
-            {formData.question_type === 'multiple_choice' && (
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Options *
-                </label>
-                <div className="space-y-2">
-                  {formData.options.map((option, index) => (
-                    <div key={index} className="flex gap-2">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-sm font-medium dark:bg-gray-700">
-                        {String.fromCharCode(65 + index)}
-                      </span>
-                      <input
-                        type="text"
-                        value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
-                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      />
-                      {formData.options.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => removeOption(index)}
-                          className="rounded-lg border border-red-300 px-3 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={addOption}
-                  className="mt-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                >
-                  + Add Option
-                </button>
-              </div>
-            )}
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Correct Answer {formData.question_type === 'multiple_choice' && '(Letter: A, B, C, D)'}
-              </label>
-              <input
-                type="text"
-                name="correct_answer"
-                value={formData.correct_answer}
-                onChange={handleInputChange}
-                placeholder={formData.question_type === 'multiple_choice' ? 'e.g., A' : 'Enter correct answer'}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Marks *
+                  Marks <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   name="marks"
                   value={formData.marks}
-                  onChange={handleInputChange}
-                  required
+                  onChange={handleChange}
                   min="1"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                    errors.marks
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
+                  } dark:bg-gray-700 dark:text-white`}
                 />
+                {errors.marks && <p className="mt-1 text-xs text-red-500">{errors.marks}</p>}
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Time Allocation (minutes)
-                </label>
-                <input
-                  type="number"
-                  name="time_allocation"
-                  value={formData.time_allocation}
-                  onChange={handleInputChange}
-                  min="1"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-            </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Learning Outcome
-              </label>
-              <textarea
-                name="learning_outcome"
-                value={formData.learning_outcome}
-                onChange={handleInputChange}
-                rows={2}
-                placeholder="What should students learn from this question?"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Keywords (comma-separated)
+                  Difficulty Level
                 </label>
-                <input
-                  type="text"
-                  name="keywords"
-                  value={formData.keywords}
-                  onChange={handleInputChange}
-                  placeholder="algorithm, sorting, complexity"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
+                <select
+                  name="difficulty_level"
+                  value={formData.difficulty_level}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                  {difficultyLevels.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
               </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Tags (comma-separated)
+                  Bloom&apos;s Taxonomy Level
                 </label>
-                <input
-                  type="text"
-                  name="tags"
-                  value={formData.tags}
-                  onChange={handleInputChange}
-                  placeholder="theory, practical, important"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
+                <select
+                  name="bloom_level"
+                  value={formData.bloom_level}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                  {bloomLevels.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
         </div>
 
+        {formData.question_type === 'Multiple Choice' && (
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+              Answer Options
+            </h2>
+
+            <div className="space-y-3">
+              {formData.options.map((option, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) => handleOptionChange(index, e.target.value)}
+                    placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  />
+                  {formData.options.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => removeOption(index)}
+                      className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+              {errors.options && <p className="text-xs text-red-500">{errors.options}</p>}
+
+              <button
+                type="button"
+                onClick={addOption}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                + Add Option
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Correct Answer <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="correct_answer"
+                value={formData.correct_answer}
+                onChange={handleChange}
+                placeholder="Enter the correct answer (e.g., A or the full text)"
+                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                  errors.correct_answer
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
+                } dark:bg-gray-700 dark:text-white`}
+              />
+              {errors.correct_answer && (
+                <p className="mt-1 text-xs text-red-500">{errors.correct_answer}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+            Additional Information
+          </h2>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Answer Explanation (Optional)
+              </label>
+              <textarea
+                name="answer_explanation"
+                value={formData.answer_explanation}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                placeholder="Provide an explanation for the correct answer..."
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Tags (Optional)
+              </label>
+              <input
+                type="text"
+                name="tags"
+                value={formData.tags}
+                onChange={handleChange}
+                placeholder="e.g., algebra, functions, derivatives (comma-separated)"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Actions */}
-        <div className="flex gap-4">
+        <div className="flex justify-end gap-3">
+          <Link
+            href="/question-bank"
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </Link>
           <button
             type="submit"
             disabled={loading}
-            className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? 'Creating...' : 'Create Question'}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            Cancel
           </button>
         </div>
       </form>
