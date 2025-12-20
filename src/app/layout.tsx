@@ -7,7 +7,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import headerNavLinks from '@/data/headerNavLinks';
+import sidebarNavLinks from '@/data/sidebarNavLinks';
 import './globals.css';
 
 const geistSans = Geist({
@@ -97,7 +97,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   };
 
   const filteredNavLinks = user
-    ? headerNavLinks.filter((link) => !link.roles || link.roles.includes(user.role))
+    ? sidebarNavLinks.filter((link) => !link.roles || link.roles.includes(user.role))
     : [];
 
   return (

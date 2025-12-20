@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       `SELECT 
         d.*,
         c.name AS college_name,
-        c.abbrv AS college_abbreviation
+        c.abbreviation AS college_abbreviation
       FROM departments d
       LEFT JOIN colleges c ON d.college_id = c.id
       ORDER BY d.name ASC`,

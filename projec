@@ -11,9 +11,9 @@ I already have my data in my database so i wanna build the files
 | ORM / DB Tool | `mysql2/promise` (raw SQL) |
 | Shadcn        | tailwind v4                |
 
-
 i.e Lecturer → Question Bank → Paper Creation → Internal Review → Submit to HOD
-
+Paper Creation: the user may choose to use manaul or automatic 
+in automatic of course you will have to give it some guide, to anable it perfect
 HOD Receives Paper → Quality Review → Provide Feedback → 
     ↓
 [APPROVE] → Forward to Exam Department
@@ -41,10 +41,6 @@ NOTE: Dont generate files that I have
 ├── 📜 tsconfig.json                                # TypeScript configuration   ✅️
 ├── 📜 tailwind.config.js                                                        ✅️
 │
-├── 📂 scripts/
-│   ├── 📜 setup-database.js                        # Creates MySQL tables
-│   └── 📜 seed-database.js                         # Inserts seed data
-│
 ├── 📂 sql/
 │   ├── 📜 schema.sql                               # Database schema            ✅️
 │   └── 📜 seed.sql                                 # Initial data insert        ✅️
@@ -68,75 +64,70 @@ NOTE: Dont generate files that I have
 │   │   
 │   ├── 📂 app/
 │   │   │
-│   │   ├── 📂 (auth)/
+│   │   ├── 📂 (auth)/                              # Authentication routes
 │   │   │   ├── 📂 login/
 │   │   │   │   └── page.tsx
 │   │   │   └── 📂 register/
 │   │   │       └── page.tsx
 │   │   │
-│   │   ├── 📂(dashboard)/
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx
+│   │   ├── 📜 layout.tsx                          # Root layout (main wrapper)
+│   │   ├── 📜 page.tsx                            # Home page (dashboard)
 │   │   │
-│   │   │   ├── 📂 exam-papers/
-│   │   │   │   ├── page.tsx
-│   │   │   │   ├── 📂 create/
-│   │   │   │   │   └── page.tsx
-│   │   │   │   ├── 📂 submitted/
-│   │   │   │   │   └── page.tsx
-│   │   │   │   └── 📂 [paperId]/
-│   │   │   │       ├── page.tsx
-│   │   │   │       ├── 📂 edit/
-│   │   │   │       │   └── page.tsx
-│   │   │   │       ├── 📂 preview/
-│   │   │   │       │   └── page.tsx
-│   │   │   │       └── 📂 select-questions/
-│   │   │   │           └── page.tsx
+│   │   ├── 📂 exam-papers/                         # Exam Papers Module
+│   │   │   ├── 📜 page.tsx                        # List all papers
+│   │   │   ├── 📂 create/
+│   │   │   │   └── 📜 page.tsx                    # Create new paper
+│   │   │   ├── 📂 submitted/
+│   │   │   │   └── 📜 page.tsx                    # Submitted papers
+│   │   │   └── 📂 [paperId]/                      # Individual paper
+│   │   │       ├── 📜 page.tsx                    # Paper details
+│   │   │       ├── 📂 edit/
+│   │   │       │   └── 📜 page.tsx                # Edit paper
+│   │   │       ├── 📂 preview/
+│   │   │       │   └── 📜 page.tsx                # Preview paper
+│   │   │       └── 📂 select-questions/
+│   │   │           └── 📜 page.tsx                # Select questions
 │   │   │
-│   │   │   ├── 📂 question-bank/
-│   │   │   │   ├── page.tsx
-│   │   │   │   ├── 📂 create/
-│   │   │   │   │   └── page.tsx
-│   │   │   │   └── 📂 edit/[id]/
-│   │   │   │       └── page.tsx
+│   │   ├── 📂 question-bank/                       # Question Bank Module
+
 │   │   │
-│   │   │   ├── 📂 courses/
-│   │   │   │   ├── 📜 page.tsx                    # Courses list
-│   │   │   │   ├── 📂 create/
-│   │   │   │   │   └── 📜 page.tsx                # Create course
-│   │   │   │   ├── 📂 import/
-│   │   │   │   │   └── 📜 page.tsx                # Import courses CSV/Excel
-│   │   │   │   ├── 📂 edit/
-│   │   │   │   │   └── 📂 [id]/
-│   │   │   │   │       └── 📜 page.tsx            # Edit course
-│   │   │   │   └── 📂 [id]/                       # Course details
-│   │   │   │       ├── 📜 page.tsx                # View course details
-│   │   │   │       └── 📂 study-units/            # Nested under a course
-│   │   │   │           ├── 📜 page.tsx            # Study units list
-│   │   │   │           ├── 📂 create/
-│   │   │   │           │   └── 📜 page.tsx        # Create study unit
-│   │   │   │           └── 📂 [unitId]/           # Study unit details
-│   │   │   │               ├── 📜 page.tsx        # View study unit
-│   │   │   │               └── 📂 edit/
-│   │   │   │                   └── 📜 page.tsx    # Edit study unit
+│   │   ├── 📂 courses/                             # Courses Module
+│   │   │   ├── 📜 page.tsx                        # Courses list
+│   │   │   ├── 📂 create/
+│   │   │   │   └── 📜 page.tsx                    # Create course
+│   │   │   ├── 📂 import/
+│   │   │   │   └── 📜 page.tsx                    # Import courses CSV/Excel
+│   │   │   ├── 📂 edit/
+│   │   │   │   └── 📂 [id]/
+│   │   │   │       └── 📜 page.tsx                # Edit course
+│   │   │   └── 📂 [id]/                           # Course details
+│   │   │       ├── 📜 page.tsx                    # View course details
+│   │   │       └── 📂 study-units/                # Nested under a course
+│   │   │           ├── 📜 page.tsx                # Study units list
+│   │   │           ├── 📂 create/
+│   │   │           │   └── 📜 page.tsx            # Create study unit
+│   │   │           └── 📂 [unitId]/               # Study unit details
+│   │   │               ├── 📜 page.tsx            # View study unit
+│   │   │               └── 📂 edit/
+│   │   │                   └── 📜 page.tsx        # Edit study unit
 │   │   │
-│   │   │   ├── 📂 approvals/
-│   │   │   │   └── 📜 page.tsx
+│   │   ├── 📂 approvals/                           # Approvals Module
+│   │   │   └── 📜 page.tsx                        # Approval requests
 │   │   │
-│   │   │   ├── 📂 notifications/                    # ⭐ Inbox / Outbox / Feedback
-│   │   │   │   ├── 📂 inbox/
-│   │   │   │   │   └── page.tsx                     # Papers waiting for action
-│   │   │   │   ├── 📂 outbox/
-│   │   │   │   │   └── page.tsx                     # Papers user submitted
-│   │   │   │   ├── 📂 feedback/
-│   │   │   │   │   └── page.tsx                     # Returned papers + comments
-│   │   │   │   └── 📂 history/
-│   │   │   │       └── page.tsx                     # Audit logs + timeline
+│   │   ├── 📂 notifications/                       # ⭐ Inbox / Outbox / Feedback
+│   │   │   ├── 📂 inbox/
+│   │   │   │   └── 📜 page.tsx                    # Papers waiting for action
+│   │   │   ├── 📂 outbox/
+│   │   │   │   └── 📜 page.tsx                    # Papers user submitted
+│   │   │   ├── 📂 feedback/
+│   │   │   │   └── 📜 page.tsx                    # Returned papers + comments
+│   │   │   └── 📂 history/
+│   │   │       └── 📜 page.tsx                    # Audit logs + timeline
 │   │   │
-│   │   │   └── 📂 profile/
-│   │   │       └── page.tsx
+│   │   ├── 📂 profile/                             # User Profile
+│   │   │   └── 📜 page.tsx                        # User profile page
 │   │   │
-│   │   ├── 📂 api/
+│   │   ├── 📂 api/                                 # API Routes
 │   │   │   ├── 📂 auth/
 │   │   │   │   ├── login/route.ts
 │   │   │   │   ├── logout/route.ts
@@ -167,38 +158,36 @@ NOTE: Dont generate files that I have
 │   │   │
 │   │   │   └── notifications/route.ts
 │   │   │
-│   │   ├── 📜 globals.css                                                       ✅️
-│   │   ├── 📜 not-found.tsx                                                     ✅️
-│   │   ├── 📜 robot.tx                                                          ✅️
-│   │   ├── 📜 seo.tsx                                                           ✅️
-│   │   ├── 📜 theme-providers.tsx                                               ✅️
+│   │   ├── 📜 globals.css                                                        ✅️
+│   │   ├── 📜 not-found.tsx                                                      ✅️
+│   │   ├── 📜 robot.txt                                                          ✅️
+│   │   ├── 📜 seo.tsx                                                            ✅️
+│   │   ├── 📜 theme-providers.tsx                                                ✅️
 │   │   │
-│   │   └── layout.tsx         
+│   │   └── 📜 error.tsx                                                          ✅️
 │   │
-│   ├── 📂 components/                               # Reusable components
-│   │   ├── 📂 ui
+│   ├── 📂 components/                              # Reusable components
+│   │   └── 📂 ui/                                  # Shadcn/ui components
 │   │
 │   ├── 📂 data/
-│   │   └── headerNavLinks.ts
+│   │   ├── 📜 sidebarNavLinks.ts                   # Sidebar navigation
+│   │   └── 📜 siteMetadata.js                     #                            ✅️
 │   │
-│   ├── 📂 hooks/
-│   │   ├── useAuth.ts
-│   │   └── useRole.ts
 │   │
 │   ├── 📂 lib/
-│   │   ├── db.ts                                     # MySQL connection         ✅️
-│   │   ├── auth.ts                                                              ✅️
-│   │   ├── rbac.ts                                                              ✅️
-│   │   └── utils.ts                                                             ✅️
+│   │   ├── 📜 auth.ts                             # Authentication utilities   ✅️
+│   │   ├── 📜 db.ts                               # MySQL connection           ✅️
+│   │   ├── 📜 generateSearchJson.ts               #                            ✅️
+│   │   ├── 📜 rbac.ts                             # Role-based access control  ✅️
+│   │   └── 📜 utils.ts                            # General utilities          ✅️
 │   │
 │   ├── 📂 types/
-│   │   ├── env.d.ts                                                             ✅️
-│   │   └── index.ts                                                             ✅️
+│   │   ├── 📜 css.d.ts                            #                            ✅️
+│   │   ├── 📜 env.d.ts                            # Environment types          ✅️
+│   │   └── 📜 index.ts                            # Main type definitions      ✅️
 │   │
-│   ├── 📂 config/
-│   │   └── index.ts                                                             ✅️
-│   │
-│   └── 📜 proxy.ts                                                             ✅️
-│
+│   └── 📜 middleware.ts                                                        ✅️
 │
 └── 📜 README.md                                     # Documentation
+
+# created in Froebel deepseek

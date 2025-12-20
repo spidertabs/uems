@@ -1,11 +1,11 @@
-INSERT INTO colleges (code, name, abbrv, description) VALUES
+INSERT INTO colleges (code, name, abbreviation, description) VALUES
 ('SOMAC', 'School of Mathematics and Computing', 'SOMAC', 'Handles Mathematics, Computing, and ICT programs.'),
 ('SONAS', 'School of Natural Sciences', 'SONAS', 'Covers biology, chemistry, physics and natural science programs.'),
 ('SOL', 'School of Law', 'SOL', 'Legal studies and research faculty.'),
 ('CEM', 'College of Economics and Management', 'CEM', 'Business, management and economics programs.');
 
 
-INSERT INTO departments (college_id, code, name, abbrv, description) VALUES
+INSERT INTO departments (college_id, code, name, abbreviation, description) VALUES
 -- SOMAC
 (1, 'CS', 'Computer Science', 'CS', 'Department of Computer Science'),
 (1, 'IT', 'Information Technology', 'IT', 'Department of Information Technology'),

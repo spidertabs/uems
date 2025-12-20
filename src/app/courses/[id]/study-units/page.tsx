@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 // src/app/courses/[id]/study-units/page.tsx
 'use client';
@@ -15,6 +14,7 @@ interface StudyUnit {
   sequence_order: number;
   learning_outcomes: string;
   is_active: boolean;
+  created_by: number;
   created_by_name: string;
   questions_count: number;
   created_at: string;
@@ -55,7 +55,35 @@ export default function StudyUnitsPage() {
 
       if (unitsRes.ok) {
         const data = await unitsRes.json();
-        setStudyUnits(data.study_units || []);
+        const units: StudyUnit[] = data.studyUnits || [];
+
+        // Fetch all creator names
+        const creatorsMap: Record<number, string> = {};
+        await Promise.all(
+          units.map(async (unit) => {
+            if (!creatorsMap[unit.created_by]) {
+              try {
+                const res = await fetch(`/api/users/${unit.created_by}`);
+                if (res.ok) {
+                  const user = await res.json();
+                  creatorsMap[unit.created_by] = user.name;
+                } else {
+                  creatorsMap[unit.created_by] = `User ${unit.created_by}`;
+                }
+              } catch {
+                creatorsMap[unit.created_by] = `User ${unit.created_by}`;
+              }
+            }
+          })
+        );
+
+        // Add creator names to study units
+        const unitsWithNames = units.map((unit) => ({
+          ...unit,
+          created_by_name: creatorsMap[unit.created_by] || `User ${unit.created_by}`,
+        }));
+
+        setStudyUnits(unitsWithNames);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -65,15 +93,12 @@ export default function StudyUnitsPage() {
   };
 
   const handleDeleteUnit = async (unitId: number) => {
-    if (!confirm('Are you sure you want to delete this study unit? This will also delete all associated questions.')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete this study unit? This will also delete all associated questions.')) return;
 
     try {
       const response = await fetch(`/api/courses/${courseId}/study-units/${unitId}`, {
         method: 'DELETE',
       });
-
       if (response.ok) {
         setStudyUnits(studyUnits.filter((u) => u.id !== unitId));
         alert('Study unit deleted successfully');
@@ -123,7 +148,7 @@ export default function StudyUnitsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 lg:pl-64">
       {/* Header */}
       <div>
         <Link
@@ -198,7 +223,7 @@ export default function StudyUnitsPage() {
         <div className="space-y-4">
           {filteredUnits
             .sort((a, b) => a.sequence_order - b.sequence_order)
-            .map((unit, index) => (
+            .map((unit) => (
               <div
                 key={unit.id}
                 className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"

@@ -8,7 +8,7 @@ CREATE TABLE colleges (
     id INT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL UNIQUE,
-    abbrv VARCHAR(255) NOT NULL UNIQUE,
+    abbreviation VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -21,11 +21,10 @@ CREATE TABLE departments (
     college_id INT NOT NULL COMMENT 'College where the department belongs',
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL UNIQUE,
-    abbrv VARCHAR(255) NOT NULL UNIQUE,
+    abbreviation VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
     FOREIGN KEY (college_id) REFERENCES colleges(id) ON DELETE CASCADE,
     INDEX idx_code (code),
     INDEX idx_college (college_id)

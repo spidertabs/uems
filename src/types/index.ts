@@ -44,7 +44,7 @@ export interface College {
   id: number;
   code: string;
   name: string;
-  abbrv: string;
+  abbreviation: string;
   description: string | null;
   created_at: Date;
   updated_at: Date;
@@ -55,7 +55,7 @@ export interface Department {
   college_id: number;
   code: string;
   name: string;
-  abbrv: string;
+  abbreviation: string;
   description: string | null;
   created_at: Date;
   updated_at: Date;
