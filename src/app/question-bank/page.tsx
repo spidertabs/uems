@@ -78,24 +78,49 @@ export default function QuestionBankPage() {
     try {
       // Find the course ID from the code
       const course = filterOptions.courses.find(c => c.code === courseCode);
-      if (!course) return;
+      if (!course) {
+        console.log('Course not found for code:', courseCode);
+        return;
+      }
 
+      console.log('Fetching study units for course ID:', course.id);
       const response = await fetch(`/api/courses/${course.id}/study-units`);
+      
       if (response.ok) {
         const data = await response.json();
-        console.log('Study units data:', data);
-        const units = data.study_units || [];
+        console.log('Study units response:', data);
+        
+        // Your API returns { studyUnits: [...] } (camelCase)
+        const units = data.studyUnits || [];
+        
+        console.log('Found units:', units.length);
+        
+        if (units.length === 0) {
+          console.log('No study units found for this course');
+        }
+        
         setFilterOptions((prev) => ({
           ...prev,
           studyUnits: units.map((u: any) => ({
             id: u.id,
-            title: u.name || u.title,
+            title: u.name || u.title || 'Unnamed Unit',
             course_code: courseCode,
           })),
+        }));
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to fetch study units:', response.status, errorData);
+        setFilterOptions((prev) => ({
+          ...prev,
+          studyUnits: [],
         }));
       }
     } catch (error) {
       console.error('Failed to fetch study units:', error);
+      setFilterOptions((prev) => ({
+        ...prev,
+        studyUnits: [],
+      }));
     }
   };
 
@@ -116,7 +141,28 @@ export default function QuestionBankPage() {
       if (questionsRes.ok) {
         const questionsData = await questionsRes.json();
         console.log('Questions data:', questionsData);
-        setQuestions(questionsData.questions || []);
+        const allQuestions = questionsData.questions || [];
+        setQuestions(allQuestions);
+
+        // Extract unique values from actual questions to populate filters
+        if (allQuestions.length > 0) {
+          const uniqueBloomLevels = [...new Set(allQuestions.map((q: any) => q.bloom_level).filter(Boolean))] as string[];
+          const uniqueDifficultyLevels = [...new Set(allQuestions.map((q: any) => q.difficulty_level).filter(Boolean))] as string[];
+          const uniqueQuestionTypes = [...new Set(allQuestions.map((q: any) => q.question_type).filter(Boolean))] as string[];
+          
+          console.log('Unique values from DB:', {
+            bloomLevels: uniqueBloomLevels,
+            difficultyLevels: uniqueDifficultyLevels,
+            questionTypes: uniqueQuestionTypes
+          });
+
+          setFilterOptions((prev) => ({
+            ...prev,
+            bloomLevels: uniqueBloomLevels.length > 0 ? uniqueBloomLevels : prev.bloomLevels,
+            difficultyLevels: uniqueDifficultyLevels.length > 0 ? uniqueDifficultyLevels : prev.difficultyLevels,
+            questionTypes: uniqueQuestionTypes.length > 0 ? uniqueQuestionTypes : prev.questionTypes,
+          }));
+        }
       } else {
         const errorData = await questionsRes.json();
         console.error('Questions error:', errorData);
@@ -169,10 +215,31 @@ export default function QuestionBankPage() {
     const matchesCourse = filterCourse === 'all' || question.course_code === filterCourse;
     const matchesStudyUnit =
       filterStudyUnit === 'all' || question.study_unit_title === filterStudyUnit;
-    const matchesBloom = filterBloom === 'all' || question.bloom_level === filterBloom;
-    const matchesDifficulty =
-      filterDifficulty === 'all' || question.difficulty_level === filterDifficulty;
-    const matchesType = filterType === 'all' || question.question_type === filterType;
+    
+    // Case-insensitive comparison for bloom level
+    const matchesBloom = filterBloom === 'all' || 
+      question.bloom_level?.toLowerCase() === filterBloom.toLowerCase();
+    
+    // Case-insensitive comparison for difficulty
+    const matchesDifficulty = filterDifficulty === 'all' || 
+      question.difficulty_level?.toLowerCase() === filterDifficulty.toLowerCase();
+    
+    // Case-insensitive comparison for question type
+    const matchesType = filterType === 'all' || 
+      question.question_type?.toLowerCase() === filterType.toLowerCase();
+
+    // Debug logging (remove after fixing)
+    if (filterBloom !== 'all' || filterDifficulty !== 'all' || filterType !== 'all') {
+      console.log('Question:', {
+        id: question.id,
+        bloom_level: question.bloom_level,
+        difficulty_level: question.difficulty_level,
+        question_type: question.question_type,
+        matchesBloom,
+        matchesDifficulty,
+        matchesType
+      });
+    }
 
     return (
       matchesSearch &&
