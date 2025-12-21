@@ -17,7 +17,30 @@ export async function GET(req: NextRequest) {
     const questionType = searchParams.get('question_type');
     const difficultyLevel = searchParams.get('difficulty_level');
     const isActive = searchParams.get('is_active');
+    const getTypes = searchParams.get('types'); // New parameter to get question types
 
+    // If requesting question types only
+    if (getTypes === 'true') {
+      const types = await query<any[]>(
+        `SELECT DISTINCT question_type 
+         FROM questions 
+         WHERE question_type IS NOT NULL 
+         AND question_type != '' 
+         AND is_active = 1
+         ORDER BY question_type ASC`,
+        []
+      );
+
+      const questionTypes = types.map(t => t.question_type);
+
+      return NextResponse.json({
+        success: true,
+        questionTypes,
+        count: questionTypes.length
+      });
+    }
+
+    // Regular questions query
     let sql = `
       SELECT 
         q.*,
@@ -66,11 +89,15 @@ export async function GET(req: NextRequest) {
 
     const questions = await query(sql, params);
 
-    return NextResponse.json({ questions });
+    return NextResponse.json({ 
+      success: true,
+      questions,
+      count: Array.isArray(questions) ? questions.length : 0
+    });
   } catch (error) {
     console.error('Questions fetch error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch questions' },
+      { error: 'Failed to fetch questions', details: String(error) },
       { status: 500 }
     );
   }

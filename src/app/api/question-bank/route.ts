@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { role, id: user_id, department_id, college_id } = session;
+    const { searchParams } = new URL(request.url);
+    const course_id = searchParams.get('course_id');
 
     let sql = `
       SELECT 
@@ -45,6 +47,12 @@ export async function GET(request: NextRequest) {
 
     const params: any[] = [];
 
+    // Filter by course_id if provided
+    if (course_id) {
+      sql += ` AND q.course_id = ?`;
+      params.push(course_id);
+    }
+
     // Filter based on role
     if (role === 'lecturer') {
       // Lecturers see questions from courses they have permission for or created
@@ -66,12 +74,15 @@ export async function GET(request: NextRequest) {
       sql += ` AND c.college_id = ?`;
       params.push(college_id);
     }
+
     // Admin sees all questions (no additional filter)
 
     sql += ` ORDER BY q.created_at DESC`;
 
     console.log('Executing question query with role:', role, 'params:', params);
+
     const questions = await query<any[]>(sql, params);
+
     console.log('Found questions:', questions.length);
 
     // Parse JSON fields
