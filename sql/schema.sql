@@ -1,9 +1,13 @@
 -- ============================================================
 --  UEMS - University Exam Management System
---  MySQL Database Schema
+--  Complete MySQL Database Schema
 -- ============================================================
 
--- Colleges Table (SOMAC, SONAS, ,CEM, SOL, etc.)
+-- =====================================================
+-- ORGANIZATIONAL STRUCTURE
+-- =====================================================
+
+-- Colleges Table (SOMAC, SONAS, CEM, SOL, etc.)
 CREATE TABLE colleges (
     id INT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
@@ -25,11 +29,37 @@ CREATE TABLE departments (
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
     FOREIGN KEY (college_id) REFERENCES colleges(id) ON DELETE CASCADE,
     INDEX idx_code (code),
     INDEX idx_college (college_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Programmes Table (BIT, DIT, BSTAT, DSTAT, MBA, BBA, BOL, etc.)
+CREATE TABLE programmes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE COMMENT 'Programme code (e.g., BIT, DIT, BSTAT)',
+    name VARCHAR(255) NOT NULL UNIQUE COMMENT 'Full programme name',
+    level ENUM('diploma', 'bachelors', 'masters', 'phd') NOT NULL,
+    duration_years INT COMMENT 'Standard duration in years',
+    department_id INT,
+    college_id INT,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+    FOREIGN KEY (college_id) REFERENCES colleges(id) ON DELETE SET NULL,
+    INDEX idx_code (code),
+    INDEX idx_department (department_id),
+    INDEX idx_college (college_id),
+    INDEX idx_level (level),
+    INDEX idx_active (is_active),
+    INDEX idx_level_active (level, is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- USER MANAGEMENT & AUTHENTICATION
+-- =====================================================
 
 -- Users Table (RBAC Implementation)
 CREATE TABLE users (
@@ -54,17 +84,21 @@ CREATE TABLE users (
     INDEX idx_college (college_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Sessions Table
 CREATE TABLE sessions (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  session_id VARCHAR(255) UNIQUE NOT NULL,
-  user_id INT NOT NULL,
-  expires_at DATETIME NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_session_id (session_id),
-  INDEX idx_expires_at (expires_at)
-);
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id VARCHAR(255) UNIQUE NOT NULL,
+    user_id INT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_session_id (session_id),
+    INDEX idx_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- =====================================================
+-- ACADEMIC CONTENT
+-- =====================================================
 
 -- Courses Table
 CREATE TABLE courses (
@@ -135,7 +169,8 @@ CREATE TABLE lecturer_permissions (
     INDEX idx_lecturer (lecturer_id),
     INDEX idx_course (course_id),
     INDEX idx_granted_by (granted_by),
-    INDEX idx_active (is_active)
+    INDEX idx_active (is_active),
+    INDEX idx_permissions_active (lecturer_id, is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
@@ -175,6 +210,7 @@ CREATE TABLE questions (
     INDEX idx_type (question_type),
     INDEX idx_difficulty (difficulty_level),
     INDEX idx_approved_by (approved_by),
+    INDEX idx_questions_course_active (course_id, is_active),
     FULLTEXT idx_question_text (question_text)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -229,7 +265,25 @@ CREATE TABLE exam_papers (
     INDEX idx_hod (hod_id),
     INDEX idx_dean (dean_id),
     INDEX idx_exam_master (exam_master_id),
-    INDEX idx_academic_year (academic_year, semester)
+    INDEX idx_academic_year (academic_year, semester),
+    INDEX idx_papers_status_type (status, exam_type),
+    INDEX idx_papers_creator_status (created_by, status),
+    INDEX idx_papers_hod_status (hod_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Exam Paper Programmes Junction Table (Many-to-Many)
+CREATE TABLE exam_paper_programmes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    exam_paper_id INT NOT NULL,
+    programme_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (exam_paper_id) REFERENCES exam_papers(id) ON DELETE CASCADE,
+    FOREIGN KEY (programme_id) REFERENCES programmes(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_paper_programme (exam_paper_id, programme_id),
+    INDEX idx_exam_paper (exam_paper_id),
+    INDEX idx_programme (programme_id),
+    INDEX idx_paper_programmes_paper (exam_paper_id),
+    INDEX idx_paper_programmes_programme (programme_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Exam Paper Questions (Junction Table with ordering and custom numbering)
@@ -286,7 +340,8 @@ CREATE TABLE workflow_history (
     INDEX idx_exam_paper (exam_paper_id),
     INDEX idx_actor (actor_id),
     INDEX idx_action (action),
-    INDEX idx_created_at (created_at)
+    INDEX idx_created_at (created_at),
+    INDEX idx_workflow_paper_created (exam_paper_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Paper Comments/Feedback Table
@@ -338,7 +393,8 @@ CREATE TABLE notifications (
     INDEX idx_is_read (is_read),
     INDEX idx_type (type),
     INDEX idx_created_at (created_at),
-    INDEX idx_related_paper (related_paper_id)
+    INDEX idx_related_paper (related_paper_id),
+    INDEX idx_notifications_user_read (user_id, is_read, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
@@ -365,7 +421,7 @@ CREATE TABLE audit_logs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
--- VIEWS (Useful for common queries)
+-- VIEWS
 -- =====================================================
 
 -- View: Papers awaiting HOD approval
@@ -376,16 +432,21 @@ SELECT
     ep.status,
     ep.exam_type,
     c.code as course_code,
-    c.name as course_name,
+    c.title as course_name,
     CONCAT(u.first_name, ' ', u.last_name) as lecturer_name,
     ep.submitted_at,
     ep.hod_id,
-    d.name as department_name
+    d.name as department_name,
+    GROUP_CONCAT(DISTINCT p.code ORDER BY p.code SEPARATOR ', ') as programmes
 FROM exam_papers ep
 JOIN courses c ON ep.course_id = c.id
 JOIN users u ON ep.created_by = u.id
 LEFT JOIN departments d ON c.department_id = d.id
-WHERE ep.status IN ('submitted', 'hod_review');
+LEFT JOIN exam_paper_programmes epp ON ep.id = epp.exam_paper_id
+LEFT JOIN programmes p ON epp.programme_id = p.id
+WHERE ep.status IN ('submitted', 'hod_review')
+GROUP BY ep.id, ep.paper_code, ep.status, ep.exam_type, c.code, c.title, 
+         u.first_name, u.last_name, ep.submitted_at, ep.hod_id, d.name;
 
 -- View: Papers ready for printing (Exam Master view)
 CREATE VIEW papers_ready_for_print AS
@@ -396,18 +457,25 @@ SELECT
     ep.exam_type,
     ep.exam_date,
     c.code as course_code,
-    c.name as course_name,
+    c.title as course_name,
     ep.total_marks,
     ep.duration,
     ep.hod_approved_at,
     ep.print_quantity,
     d.name as department_name,
-    col.name as college_name
+    col.name as college_name,
+    GROUP_CONCAT(DISTINCT p.code ORDER BY p.code SEPARATOR ', ') as programmes,
+    GROUP_CONCAT(DISTINCT p.name ORDER BY p.code SEPARATOR ' | ') as programme_names
 FROM exam_papers ep
 JOIN courses c ON ep.course_id = c.id
 LEFT JOIN departments d ON c.department_id = d.id
 LEFT JOIN colleges col ON c.college_id = col.id
-WHERE ep.status IN ('ready_for_print', 'printing');
+LEFT JOIN exam_paper_programmes epp ON ep.id = epp.exam_paper_id
+LEFT JOIN programmes p ON epp.programme_id = p.id
+WHERE ep.status IN ('ready_for_print', 'printing')
+GROUP BY ep.id, ep.paper_code, ep.status, ep.exam_type, ep.exam_date,
+         c.code, c.title, ep.total_marks, ep.duration, ep.hod_approved_at,
+         ep.print_quantity, d.name, col.name;
 
 -- View: Lecturer permissions summary
 CREATE VIEW lecturer_permissions_summary AS
@@ -415,7 +483,7 @@ SELECT
     u.id as lecturer_id,
     CONCAT(u.first_name, ' ', u.last_name) as lecturer_name,
     c.code as course_code,
-    c.name as course_name,
+    c.title as course_name,
     lp.can_add_questions,
     lp.can_create_papers,
     lp.granted_at,
@@ -437,6 +505,46 @@ SELECT
     MAX(created_at) as newest_paper
 FROM exam_papers
 GROUP BY status, exam_type;
+
+-- View: Active programmes with course counts
+CREATE VIEW programmes_summary AS
+SELECT 
+    p.id,
+    p.code,
+    p.name,
+    p.level,
+    p.duration_years,
+    d.name as department_name,
+    col.name as college_name,
+    COUNT(DISTINCT epp.exam_paper_id) as total_exam_papers,
+    p.is_active
+FROM programmes p
+LEFT JOIN departments d ON p.department_id = d.id
+LEFT JOIN colleges col ON p.college_id = col.id
+LEFT JOIN exam_paper_programmes epp ON p.id = epp.programme_id
+GROUP BY p.id, p.code, p.name, p.level, p.duration_years, 
+         d.name, col.name, p.is_active;
+
+-- View: Papers by programme and status
+CREATE VIEW papers_by_programme AS
+SELECT 
+    p.code as programme_code,
+    p.name as programme_name,
+    ep.status,
+    ep.exam_type,
+    ep.academic_year,
+    ep.semester,
+    c.code as course_code,
+    c.title as course_title,
+    ep.paper_code,
+    ep.exam_date,
+    CONCAT(u.first_name, ' ', u.last_name) as created_by_name
+FROM programmes p
+JOIN exam_paper_programmes epp ON p.id = epp.programme_id
+JOIN exam_papers ep ON epp.exam_paper_id = ep.id
+JOIN courses c ON ep.course_id = c.id
+JOIN users u ON ep.created_by = u.id
+ORDER BY p.code, ep.academic_year DESC, ep.semester DESC;
 
 -- =====================================================
 -- TRIGGERS
@@ -524,23 +632,59 @@ BEGIN
     END IF;
 END//
 
+-- Trigger: Validate at least one programme is assigned to paper before submission
+CREATE TRIGGER validate_programmes_before_submit
+BEFORE UPDATE ON exam_papers
+FOR EACH ROW
+BEGIN
+    DECLARE prog_count INT;
+    
+    -- Only check when transitioning from draft to submitted
+    IF OLD.status = 'draft' AND NEW.status = 'submitted' THEN
+        SELECT COUNT(*) INTO prog_count
+        FROM exam_paper_programmes
+        WHERE exam_paper_id = NEW.id;
+        
+        IF prog_count = 0 THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Cannot submit paper: At least one programme must be assigned';
+        END IF;
+    END IF;
+END//
+
+-- Trigger: Log programme changes in workflow history
+CREATE TRIGGER log_programme_assignment
+AFTER INSERT ON exam_paper_programmes
+FOR EACH ROW
+BEGIN
+    INSERT INTO workflow_history (
+        exam_paper_id,
+        action,
+        from_status,
+        to_status,
+        actor_id,
+        actor_role,
+        comments,
+        metadata
+    )
+    SELECT 
+        NEW.exam_paper_id,
+        'updated',
+        ep.status,
+        ep.status,
+        ep.created_by,
+        u.role,
+        'Programme assigned to paper',
+        JSON_OBJECT('programme_id', NEW.programme_id, 'action', 'programme_added')
+    FROM exam_papers ep
+    JOIN users u ON ep.created_by = u.id
+    WHERE ep.id = NEW.exam_paper_id;
+END//
+
 DELIMITER ;
 
 -- =====================================================
--- INDEXES FOR PERFORMANCE
--- =====================================================
-
--- Additional composite indexes for common queries
-CREATE INDEX idx_papers_status_type ON exam_papers(status, exam_type);
-CREATE INDEX idx_papers_creator_status ON exam_papers(created_by, status);
-CREATE INDEX idx_papers_hod_status ON exam_papers(hod_id, status);
-CREATE INDEX idx_questions_course_active ON questions(course_id, is_active);
-CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read, created_at);
-CREATE INDEX idx_workflow_paper_created ON workflow_history(exam_paper_id, created_at);
-CREATE INDEX idx_permissions_active ON lecturer_permissions(lecturer_id, is_active);
-
--- =====================================================
--- ROLE-BASED COMMENTS
+-- ROLE-BASED DOCUMENTATION
 -- =====================================================
 
 /*
