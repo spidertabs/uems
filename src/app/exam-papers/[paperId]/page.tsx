@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/app/exam-papers/[paperId]/page.tsx
@@ -38,6 +39,9 @@ interface Question {
   difficulty_level: string;
   bloom_taxonomy: string;
   study_unit_name: string;
+  options?: string | string[];
+  option_order?: number[] | null;
+  shuffledOptions?: string[];
 }
 
 interface Programme {
@@ -72,6 +76,37 @@ export default function ViewExamPaperPage() {
   const [comments, setComments] = useState('');
   const [processing, setProcessing] = useState(false);
 
+  // Helper function to parse options
+  const parseOptions = (options: any): string[] | undefined => {
+    if (!options) return undefined;
+
+    if (typeof options === 'string') {
+      try {
+        const parsed = JSON.parse(options);
+        if (Array.isArray(parsed)) {
+          return parsed.map((opt) => (typeof opt === 'string' ? opt : opt.text));
+        }
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    }
+
+    if (Array.isArray(options)) {
+      return options.map((opt) => (typeof opt === 'string' ? opt : opt.text));
+    }
+
+    return undefined;
+  };
+
+  // Helper function to apply saved order to options
+  const applySavedOrder = <T,>(array: T[], order: number[]): T[] => {
+    if (!order || order.length !== array.length) {
+      return array;
+    }
+    return order.map((idx) => array[idx]);
+  };
+
   useEffect(() => {
     fetchData();
   }, [paperId]);
@@ -91,7 +126,36 @@ export default function ViewExamPaperPage() {
       if (paperRes.ok) {
         const paperData = await paperRes.json();
         setPaper(paperData.paper);
-        setQuestions(paperData.questions || []);
+
+        // Parse and apply shuffle order to questions
+        const parsedQuestions = (paperData.questions || []).map((q: Question) => {
+          const parsedOptions = parseOptions(q.options);
+
+          if (q.question_type === 'multiple_choice' && parsedOptions) {
+            // If we have a saved order, use it
+            let shuffledOptions: string[];
+
+            if (q.option_order && Array.isArray(q.option_order)) {
+              shuffledOptions = applySavedOrder(parsedOptions, q.option_order);
+            } else {
+              // No saved order, just use original
+              shuffledOptions = parsedOptions;
+            }
+
+            return {
+              ...q,
+              options: parsedOptions,
+              shuffledOptions,
+            };
+          }
+
+          return {
+            ...q,
+            options: parsedOptions,
+          };
+        });
+
+        setQuestions(parsedQuestions);
         setProgrammes(paperData.programmes || []);
       }
     } catch (error) {
@@ -154,25 +218,46 @@ export default function ViewExamPaperPage() {
     }
   };
 
+  // Helper to render MCQ options
+  const renderMCQOptions = (shuffledOptions: string[] | undefined) => {
+    if (!shuffledOptions || !Array.isArray(shuffledOptions)) return null;
+
+    return (
+      <div className="mt-2 ml-6 space-y-1.5">
+        {shuffledOptions.map((option, idx) => (
+          <div
+            key={idx}
+            className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300"
+          >
+            <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span>
+            <span className="flex-1">{option}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // Helper to format date (e.g., "Dec 24 2025")
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Not set';
     const date = new Date(dateString);
-    const options: Intl.DateTimeFormatOptions = { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     };
     return date.toLocaleDateString('en-US', options);
   };
 
   const canEdit = user && paper && paper.created_by === user.id && paper.status === 'draft';
-  const canSubmit = user && paper && paper.created_by === user.id && paper.status === 'draft' && questions.length > 0;
-  const canApprove = user && paper && (
-    (user.role === 'hod' && paper.status === 'submitted') ||
-    (user.role === 'dean' && paper.status === 'hod_approved') ||
-    user.role === 'admin'
-  );
+  const canSubmit =
+    user && paper && paper.created_by === user.id && paper.status === 'draft' && questions.length > 0;
+  const canApprove =
+    user &&
+    paper &&
+    ((user.role === 'hod' && paper.status === 'submitted') ||
+      (user.role === 'dean' && paper.status === 'hod_approved') ||
+      user.role === 'admin');
 
   const statusColors: { [key: string]: string } = {
     draft: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
@@ -213,9 +298,7 @@ export default function ViewExamPaperPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {paper.paper_code}
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{paper.paper_code}</h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {paper.course_code} - {paper.course_title}
           </p>
@@ -231,14 +314,8 @@ export default function ViewExamPaperPage() {
       {/* Paper Details */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Paper Details
-          </h2>
-          <span
-            className={`rounded-full px-4 py-1 text-sm font-medium ${
-              statusColors[paper.status]
-            }`}
-          >
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Paper Details</h2>
+          <span className={`rounded-full px-4 py-1 text-sm font-medium ${statusColors[paper.status]}`}>
             {paper.status.replace(/_/g, ' ').toUpperCase()}
           </span>
         </div>
@@ -277,9 +354,7 @@ export default function ViewExamPaperPage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Exam Date
               </label>
-              <p className="mt-1 text-gray-900 dark:text-white">
-                {formatDate(paper.exam_date)}
-              </p>
+              <p className="mt-1 text-gray-900 dark:text-white">{formatDate(paper.exam_date)}</p>
             </div>
           )}
 
@@ -303,9 +378,7 @@ export default function ViewExamPaperPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Created At
             </label>
-            <p className="mt-1 text-gray-900 dark:text-white">
-              {formatDate(paper.created_at)}
-            </p>
+            <p className="mt-1 text-gray-900 dark:text-white">{formatDate(paper.created_at)}</p>
           </div>
         </div>
 
@@ -340,9 +413,7 @@ export default function ViewExamPaperPage() {
         {programmes.length === 0 ? (
           <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 py-8 text-center dark:border-gray-600 dark:bg-gray-700/50">
             <div className="text-4xl">🎓</div>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              No programmes assigned yet
-            </p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">No programmes assigned yet</p>
             {canEdit && (
               <Link
                 href={`/exam-papers/${paperId}/edit`}
@@ -420,9 +491,7 @@ export default function ViewExamPaperPage() {
         {questions.length === 0 ? (
           <div className="py-12 text-center">
             <div className="text-6xl">📝</div>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
-              No questions added yet
-            </p>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">No questions added yet</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -433,15 +502,18 @@ export default function ViewExamPaperPage() {
               >
                 <div className="mb-2 flex items-start justify-between">
                   <div className="flex gap-2">
-                    <span className="font-semibold text-gray-900 dark:text-white">
-                      Q{index + 1}.
-                    </span>
+                    <span className="font-semibold text-gray-900 dark:text-white">Q{index + 1}.</span>
                     <span className="rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                       {question.marks} marks
                     </span>
                     <span className="rounded bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-700">
                       Section {question.section}
                     </span>
+                    {question.option_order && (
+                      <span className="rounded bg-cyan-100 px-2 py-0.5 text-xs text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200">
+                        🔀 Shuffled
+                      </span>
+                    )}
                   </div>
                   <div className="flex gap-2 text-xs">
                     <span className="rounded bg-yellow-100 px-2 py-0.5 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
@@ -453,8 +525,13 @@ export default function ViewExamPaperPage() {
                   </div>
                 </div>
                 <p className="text-gray-900 dark:text-white">{question.question_text}</p>
+
+                {/* Show MCQ options if available */}
+                {question.question_type === 'multiple_choice' &&
+                  renderMCQOptions(question.shuffledOptions)}
+
                 {question.study_unit_name && (
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     Study Unit: {question.study_unit_name}
                   </p>
                 )}
@@ -526,7 +603,9 @@ export default function ViewExamPaperPage() {
             <textarea
               value={comments}
               onChange={(e) => setComments(e.target.value)}
-              placeholder={`Add ${approvalAction === 'reject' ? 'rejection reasons' : 'approval notes'} (optional)`}
+              placeholder={`Add ${
+                approvalAction === 'reject' ? 'rejection reasons' : 'approval notes'
+              } (optional)`}
               rows={4}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
@@ -549,7 +628,11 @@ export default function ViewExamPaperPage() {
                     : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
-                {processing ? 'Processing...' : approvalAction === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+                {processing
+                  ? 'Processing...'
+                  : approvalAction === 'approve'
+                  ? 'Confirm Approval'
+                  : 'Confirm Rejection'}
               </button>
             </div>
           </div>

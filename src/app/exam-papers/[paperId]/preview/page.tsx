@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable react-hooks/exhaustive-deps */
 // src/app/exam-papers/[paperId]/preview/page.tsx
@@ -23,9 +24,13 @@ interface ExamPaper {
 
 interface Question {
   question_text: string;
+  question_type: string;
   marks: number;
   section: string;
   sequence_order: number;
+  options?: string | string[];
+  option_order?: number[] | null;
+  shuffledOptions?: string[];
 }
 
 interface Programme {
@@ -43,6 +48,58 @@ export default function PreviewExamPaperPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Helper function to parse options
+  const parseOptions = (options: any): string[] | undefined => {
+    if (!options) return undefined;
+
+    if (typeof options === 'string') {
+      try {
+        const parsed = JSON.parse(options);
+        if (Array.isArray(parsed)) {
+          return parsed.map((opt) => (typeof opt === 'string' ? opt : opt.text));
+        }
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    }
+
+    if (Array.isArray(options)) {
+      return options.map((opt) => (typeof opt === 'string' ? opt : opt.text));
+    }
+
+    return undefined;
+  };
+
+  // Helper function to apply saved order to options
+  const applySavedOrder = <T,>(array: T[], order: number[]): T[] => {
+    if (!order || order.length !== array.length) {
+      return array;
+    }
+    return order.map((idx) => array[idx]);
+  };
+
+  // Detect dark mode
+  useEffect(() => {
+    const checkDarkMode = () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+    };
+
+    // Check initially
+    checkDarkMode();
+
+    // Watch for changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -54,7 +111,36 @@ export default function PreviewExamPaperPage() {
       if (response.ok) {
         const data = await response.json();
         setPaper(data.paper);
-        setQuestions(data.questions || []);
+
+        // Parse and apply shuffle order to questions
+        const parsedQuestions = (data.questions || []).map((q: Question) => {
+          const parsedOptions = parseOptions(q.options);
+
+          if (q.question_type === 'multiple_choice' && parsedOptions) {
+            // If we have a saved order, use it
+            let shuffledOptions: string[];
+
+            if (q.option_order && Array.isArray(q.option_order)) {
+              shuffledOptions = applySavedOrder(parsedOptions, q.option_order);
+            } else {
+              // No saved order, just use original
+              shuffledOptions = parsedOptions;
+            }
+
+            return {
+              ...q,
+              options: parsedOptions,
+              shuffledOptions,
+            };
+          }
+
+          return {
+            ...q,
+            options: parsedOptions,
+          };
+        });
+
+        setQuestions(parsedQuestions);
         setProgrammes(data.programmes || []);
       }
     } catch (error) {
@@ -66,6 +152,46 @@ export default function PreviewExamPaperPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Helper function to check if options can fit in two columns
+  const canUseTwoColumns = (options: string[]): boolean => {
+    // Use two columns if all options are short (less than 50 characters)
+    const maxLength = Math.max(...options.map((opt) => opt.length));
+    return maxLength < 50;
+  };
+
+  // Helper function to render MCQ options
+  const renderMCQOptions = (shuffledOptions: string[] | undefined) => {
+    if (!shuffledOptions || !Array.isArray(shuffledOptions)) return null;
+
+    const useTwoColumns = canUseTwoColumns(shuffledOptions);
+
+    if (useTwoColumns) {
+      // Two-column layout
+      return (
+        <div className="mt-3 ml-6 grid grid-cols-2 gap-x-6 gap-y-2">
+          {shuffledOptions.map((option, idx) => (
+            <div key={idx} className="flex items-start gap-3">
+              <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span>
+              <span className="flex-1">{option}</span>
+            </div>
+          ))}
+        </div>
+      );
+    } else {
+      // Single-column layout for longer options
+      return (
+        <div className="mt-3 ml-6 space-y-2">
+          {shuffledOptions.map((option, idx) => (
+            <div key={idx} className="flex items-start gap-3">
+              <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span>
+              <span className="flex-1">{option}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
   };
 
   // Helper function to determine year from semester
@@ -82,10 +208,10 @@ export default function PreviewExamPaperPage() {
   const formatDate = (dateString: string) => {
     if (!dateString) return '_______________';
     const date = new Date(dateString);
-    const options: Intl.DateTimeFormatOptions = { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     };
     return date.toLocaleDateString('en-US', options);
   };
@@ -140,25 +266,24 @@ export default function PreviewExamPaperPage() {
       </div>
 
       {/* Paper Preview - A4 Size */}
-      <div className="mx-auto my-8 bg-white p-10 shadow-lg dark:bg-gray-800 print:m-0 print:shadow-none" 
-           style={{ width: '210mm', minHeight: '297mm' }}>
-        
+      <div
+        className="mx-auto my-8 bg-white p-10 shadow-lg dark:bg-gray-800 print:m-0 print:shadow-none"
+        style={{ width: '210mm', minHeight: '297mm' }}
+      >
         {/* Header with KIU Logo and College */}
-        <div className="mb-1 border-b-2 border-gray-800 pb-4">
-          {/* KIU Logo - Centered */}
+        <div className="mb-6 pb-4">
+          {/* KIU Logo - Centered - Dynamic based on theme */}
           <div className="mb-4 flex justify-center">
             <img
-              src="/static/images/kiu-Photoroom_white.png"
+              src={isDarkMode ? '/static/images/kiu-Photoroom_white.png' : '/static/images/kiu-Photoroom_black.png'}
               alt="KIU Logo"
               className="h-20 w-auto"
             />
           </div>
 
           <div className="text-center">
-            <h1 className="mb-2 text-2xl font-bold uppercase">
-              Kampala International University
-            </h1>
-            
+            <h1 className="mb-2 text-2xl font-bold uppercase">Kampala International University</h1>
+
             {/* College Name - Prominent Display */}
             {paper.college_name && (
               <div className="mb-3 mt-2">
@@ -167,20 +292,21 @@ export default function PreviewExamPaperPage() {
                 </p>
               </div>
             )}
-            
+
             <h2 className="mb-2 text-xl font-semibold">
               {paper.exam_type} EXAMINATION {paper.academic_year}
             </h2>
             <h3>
               <p className="font-semibold">
-                Time Allowed: {Math.floor(paper.duration / 60)} hour{Math.floor(paper.duration / 60) !== 1 ? 's' : ''}
+                Time Allowed: {Math.floor(paper.duration / 60)} hour
+                {Math.floor(paper.duration / 60) !== 1 ? 's' : ''}
               </p>
             </h3>
           </div>
         </div>
 
         {/* Course Information */}
-        <div className="mb-6 border border-gray-800 p-4">
+        <div className="mb-6 p-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="font-semibold">Course Code:</p>
@@ -192,17 +318,16 @@ export default function PreviewExamPaperPage() {
             </div>
             <div>
               <p className="font-semibold">Date:</p>
-              <p className="text-lg font-bold">
-                {formatDate(paper.exam_date)}
-              </p>
+              <p className="text-lg font-bold">{formatDate(paper.exam_date)}</p>
             </div>
             <div>
               <p className="font-semibold">Programme(s):</p>
               <p className="text-lg font-bold">
-                {programmes.length > 0 
-                  ? programmes.map(p => p.code).join(', ')
-                  : '_______________'} 
-                  <span className="px-2"> / {year} : {semesterInYear} </span>
+                {programmes.length > 0 ? programmes.map((p) => p.code).join(', ') : '_______________'}
+                <span className="px-2">
+                  {' '}
+                  / {year} : {semesterInYear}{' '}
+                </span>
               </p>
             </div>
           </div>
@@ -210,7 +335,7 @@ export default function PreviewExamPaperPage() {
 
         {/* Instructions */}
         {paper.instructions && (
-          <div className="mb-6 border border-gray-800 bg-gray-50 p-4 dark:bg-gray-900">
+          <div className="mb-6 bg-gray-50 p-4 dark:bg-gray-700">
             <p className="mb-2 font-bold uppercase">Instructions to Candidates:</p>
             <div className="whitespace-pre-wrap text-sm">{paper.instructions}</div>
           </div>
@@ -222,7 +347,7 @@ export default function PreviewExamPaperPage() {
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([section, sectionQuestions]) => (
               <div key={section} className="break-inside-avoid">
-                <h3 className="mb-4 border-b-2 border-gray-800 pb-2 text-lg font-bold uppercase">
+                <h3 className="mb-4 pb-2 text-lg font-bold uppercase">
                   Section {section}
                   <span className="ml-4 text-sm font-normal">
                     ({sectionQuestions.reduce((sum, q) => sum + q.marks, 0)} Marks)
@@ -235,24 +360,19 @@ export default function PreviewExamPaperPage() {
                     .map((question, index) => (
                       <div key={index} className="break-inside-avoid">
                         <div className="mb-2 flex items-start">
-                          <span className="mr-2 font-bold">
-                            {index + 1}.
-                          </span>
+                          <span className="mr-2 font-bold">{index + 1}.</span>
                           <div className="flex-1">
                             <div className="flex items-start justify-between">
-                              <p className="flex-1 text-justify">
-                                {question.question_text}
-                              </p>
+                              <div className="flex-1">
+                                <p className="text-justify">{question.question_text}</p>
+
+                                {/* Show MCQ options if available */}
+                                {question.question_type === 'multiple_choice' &&
+                                  renderMCQOptions(question.shuffledOptions)}
+                              </div>
                               <span className="ml-4 font-semibold">
                                 [{question.marks} mark{question.marks !== 1 ? 's' : ''}]
                               </span>
-                            </div>
-                            {/* Answer space */}
-                            <div className="mt-4 border-t border-gray-300 pt-2">
-                              <p className="text-xs italic text-gray-500">
-                                [Answer space]
-                              </p>
-                              <div className="h-24"></div>
                             </div>
                           </div>
                         </div>
@@ -264,9 +384,9 @@ export default function PreviewExamPaperPage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-12 border-t-2 border-gray-800 pt-4 text-center text-xs">
+        <div className="mt-12 pt-4 text-center text-xs">
           <p>*** END OF EXAMINATION ***</p>
-          <p className="mt-2 text-gray-600">
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
             {paper.paper_code} | Page 1 of 1
           </p>
         </div>
@@ -277,19 +397,37 @@ export default function PreviewExamPaperPage() {
           .no-print {
             display: none !important;
           }
-          
+
           body {
             margin: 0;
             padding: 0;
           }
-          
+
           @page {
             size: A4;
             margin: 20mm;
           }
-          
+
           .break-inside-avoid {
             page-break-inside: avoid;
+          }
+          
+          /* Force light mode colors for print */
+          .dark\\:bg-gray-800 {
+            background-color: white !important;
+          }
+          
+          .dark\\:text-white,
+          .dark\\:text-gray-200 {
+            color: black !important;
+          }
+          
+          .dark\\:bg-gray-700 {
+            background-color: #f9fafb !important;
+          }
+          
+          .dark\\:text-gray-400 {
+            color: #6b7280 !important;
           }
         }
       `}</style>

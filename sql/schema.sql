@@ -302,6 +302,7 @@ CREATE TABLE exam_paper_questions (
     sequence_order INT NOT NULL COMMENT 'Order questions appear on paper (1, 2, 3...)',
     parent_question_id INT COMMENT 'For sub-questions, references parent question',
     indentation_level INT DEFAULT 0 COMMENT '0=main, 1=sub (a,b,c), 2=sub-sub (i,ii,iii)',
+    option_order JSON COMMENT 'Shuffled order of MCQ options (array of indices like [2,0,3,1])',
     notes TEXT COMMENT 'Internal notes about this question placement',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
