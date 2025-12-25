@@ -1,4 +1,4 @@
-// src/app/exam-papers/create/page.tsx
+ // src/app/exam-papers/create/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -11,10 +11,21 @@ interface Course {
   title: string;
 }
 
+interface Programme {
+  id: number;
+  code: string;
+  name: string;
+  level: string;
+  department_name: string | null;
+  college_name: string | null;
+}
+
 export default function CreateExamPaperPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [programmes, setProgrammes] = useState<Programme[]>([]);
+  const [selectedProgrammes, setSelectedProgrammes] = useState<number[]>([]);
   const [formData, setFormData] = useState({
     course_id: '',
     exam_type: 'TEST',
@@ -27,6 +38,7 @@ export default function CreateExamPaperPage() {
 
   useEffect(() => {
     fetchCourses();
+    fetchProgrammes();
   }, []);
 
   const fetchCourses = async () => {
@@ -41,15 +53,37 @@ export default function CreateExamPaperPage() {
     }
   };
 
+  const fetchProgrammes = async () => {
+    try {
+      const response = await fetch('/api/programmes');
+      if (response.ok) {
+        const data = await response.json();
+        setProgrammes(data.programmes || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch programmes:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate that at least one programme is selected
+    if (selectedProgrammes.length === 0) {
+      alert('Please select at least one programme for this exam paper');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const response = await fetch('/api/exam-papers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          programme_ids: selectedProgrammes,
+        }),
       });
 
       if (response.ok) {
@@ -78,6 +112,29 @@ export default function CreateExamPaperPage() {
         ? parseInt(value) || ''
         : value,
     }));
+  };
+
+  const handleProgrammeToggle = (programmeId: number) => {
+    setSelectedProgrammes((prev) =>
+      prev.includes(programmeId)
+        ? prev.filter((id) => id !== programmeId)
+        : [...prev, programmeId]
+    );
+  };
+
+  const handleSelectAllProgrammes = () => {
+    if (selectedProgrammes.length === programmes.length) {
+      setSelectedProgrammes([]);
+    } else {
+      setSelectedProgrammes(programmes.map((p) => p.id));
+    }
+  };
+
+  // Helper to get year and semester display
+  const getYearSemesterDisplay = (semester: number) => {
+    const year = Math.ceil(semester / 2);
+    const semInYear = semester % 2 === 0 ? 2 : 1;
+    return `Year ${year}: ${semInYear}`;
   };
 
   return (
@@ -171,9 +228,11 @@ export default function CreateExamPaperPage() {
                 required
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
-                <option value={1}>Semester 1</option>
-                <option value={2}>Semester 2</option>
-                <option value={3}>Semester 3</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                  <option key={sem} value={sem}>
+                    Semester {sem} ({getYearSemesterDisplay(sem)})
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -209,6 +268,73 @@ export default function CreateExamPaperPage() {
             </div>
           </div>
 
+          {/* Programmes Selection */}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Programmes <span className="text-red-500">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleSelectAllProgrammes}
+                className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              >
+                {selectedProgrammes.length === programmes.length
+                  ? 'Deselect All'
+                  : 'Select All'}
+              </button>
+            </div>
+            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+              Select all programmes that will take this exam ({selectedProgrammes.length} selected)
+            </p>
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700/50">
+              {programmes.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No programmes available
+                </p>
+              ) : (
+                programmes.map((programme) => (
+                  <label
+                    key={programme.id}
+                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedProgrammes.includes(programme.id)}
+                      onChange={() => handleProgrammeToggle(programme.id)}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {programme.code}
+                        </span>
+                        <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                          {programme.level}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {programme.name}
+                      </p>
+                      {(programme.department_name || programme.college_name) && (
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+                          {[programme.department_name, programme.college_name]
+                            .filter(Boolean)
+                            .join(' • ')}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
+            {selectedProgrammes.length === 0 && (
+              <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                Please select at least one programme
+              </p>
+            )}
+          </div>
+
           {/* Instructions */}
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -234,7 +360,7 @@ export default function CreateExamPaperPage() {
             </Link>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || selectedProgrammes.length === 0}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? 'Creating...' : 'Create Paper & Add Questions'}

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable react-hooks/exhaustive-deps */
 // src/app/exam-papers/[paperId]/preview/page.tsx
 'use client';
@@ -10,6 +11,7 @@ interface ExamPaper {
   paper_code: string;
   course_code: string;
   course_title: string;
+  college_name?: string;
   exam_type: string;
   academic_year: number;
   semester: number;
@@ -26,12 +28,20 @@ interface Question {
   sequence_order: number;
 }
 
+interface Programme {
+  id: number;
+  code: string;
+  name: string;
+  level: string;
+}
+
 export default function PreviewExamPaperPage() {
   const params = useParams();
   const paperId = params.paperId as string;
 
   const [paper, setPaper] = useState<ExamPaper | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,6 +55,7 @@ export default function PreviewExamPaperPage() {
         const data = await response.json();
         setPaper(data.paper);
         setQuestions(data.questions || []);
+        setProgrammes(data.programmes || []);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -55,6 +66,28 @@ export default function PreviewExamPaperPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Helper function to determine year from semester
+  const getYearFromSemester = (semester: number) => {
+    return Math.ceil(semester / 2);
+  };
+
+  // Helper function to get semester in year (1 or 2)
+  const getSemesterInYear = (semester: number) => {
+    return semester % 2 === 0 ? 2 : 1;
+  };
+
+  // Helper to format date (e.g., "Dec 24 2025")
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '_______________';
+    const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    };
+    return date.toLocaleDateString('en-US', options);
   };
 
   if (loading) {
@@ -77,6 +110,9 @@ export default function PreviewExamPaperPage() {
     acc[q.section].push(q);
     return acc;
   }, {} as Record<string, Question[]>);
+
+  const year = getYearFromSemester(paper.semester);
+  const semesterInYear = getSemesterInYear(paper.semester);
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 lg:pl-64">
@@ -104,20 +140,42 @@ export default function PreviewExamPaperPage() {
       </div>
 
       {/* Paper Preview - A4 Size */}
-      <div className="mx-auto my-8 bg-white p-8 shadow-lg dark:bg-gray-800 print:m-0 print:shadow-none" 
+      <div className="mx-auto my-8 bg-white p-10 shadow-lg dark:bg-gray-800 print:m-0 print:shadow-none" 
            style={{ width: '210mm', minHeight: '297mm' }}>
         
-        {/* Header */}
-        <div className="mb-8 border-b-2 border-gray-800 pb-4 text-center">
-          <h1 className="mb-2 text-2xl font-bold uppercase">
-            Kampala International University
-          </h1>
-          <h2 className="mb-2 text-xl font-semibold">
-            {paper.exam_type} EXAMINATION
-          </h2>
-          <div className="text-sm">
-            <p className="font-semibold">Academic Year: {paper.academic_year}</p>
-            <p className="font-semibold">Semester {paper.semester}</p>
+        {/* Header with KIU Logo and College */}
+        <div className="mb-1 border-b-2 border-gray-800 pb-4">
+          {/* KIU Logo - Centered */}
+          <div className="mb-4 flex justify-center">
+            <img
+              src="/static/images/kiu-Photoroom_white.png"
+              alt="KIU Logo"
+              className="h-20 w-auto"
+            />
+          </div>
+
+          <div className="text-center">
+            <h1 className="mb-2 text-2xl font-bold uppercase">
+              Kampala International University
+            </h1>
+            
+            {/* College Name - Prominent Display */}
+            {paper.college_name && (
+              <div className="mb-3 mt-2">
+                <p className="text-lg font-bold uppercase text-gray-800 dark:text-gray-200">
+                  {paper.college_name}
+                </p>
+              </div>
+            )}
+            
+            <h2 className="mb-2 text-xl font-semibold">
+              {paper.exam_type} EXAMINATION {paper.academic_year}
+            </h2>
+            <h3>
+              <p className="font-semibold">
+                Time Allowed: {Math.floor(paper.duration / 60)} hour{Math.floor(paper.duration / 60) !== 1 ? 's' : ''}
+              </p>
+            </h3>
           </div>
         </div>
 
@@ -126,31 +184,26 @@ export default function PreviewExamPaperPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="font-semibold">Course Code:</p>
-              <p className="text-lg">{paper.course_code}</p>
+              <p className="text-lg font-bold">{paper.course_code}</p>
             </div>
             <div>
               <p className="font-semibold">Course Title:</p>
-              <p className="text-lg">{paper.course_title}</p>
+              <p className="text-lg font-bold">{paper.course_title}</p>
             </div>
             <div>
               <p className="font-semibold">Date:</p>
-              <p>
-                {paper.exam_date
-                  ? new Date(paper.exam_date).toLocaleDateString()
-                  : '_______________'}
+              <p className="text-lg font-bold">
+                {formatDate(paper.exam_date)}
               </p>
             </div>
             <div>
-              <p className="font-semibold">Time Allowed:</p>
-              <p>{paper.duration} minutes ({Math.floor(paper.duration / 60)} hour{Math.floor(paper.duration / 60) !== 1 ? 's' : ''})</p>
-            </div>
-            <div>
-              <p className="font-semibold">Total Marks:</p>
-              <p className="text-lg font-bold">{paper.total_marks}</p>
-            </div>
-            <div>
-              <p className="font-semibold">Paper Code:</p>
-              <p>{paper.paper_code}</p>
+              <p className="font-semibold">Programme(s):</p>
+              <p className="text-lg font-bold">
+                {programmes.length > 0 
+                  ? programmes.map(p => p.code).join(', ')
+                  : '_______________'} 
+                  <span className="px-2"> / {year} : {semesterInYear} </span>
+              </p>
             </div>
           </div>
         </div>

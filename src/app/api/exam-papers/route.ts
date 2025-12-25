@@ -1,7 +1,7 @@
 // src/app/api/exam-papers/route.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, transaction } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -31,10 +31,13 @@ export async function GET(request: NextRequest) {
         c.code AS course_code,
         c.title AS course_title,
         CONCAT(creator.first_name, ' ', creator.last_name) AS created_by_name,
-        ep.created_by
+        ep.created_by,
+        GROUP_CONCAT(DISTINCT p.code ORDER BY p.code SEPARATOR ', ') as programmes
       FROM exam_papers ep
       JOIN courses c ON ep.course_id = c.id
       LEFT JOIN users creator ON ep.created_by = creator.id
+      LEFT JOIN exam_paper_programmes epp ON ep.id = epp.exam_paper_id
+      LEFT JOIN programmes p ON epp.programme_id = p.id
       WHERE 1=1
     `;
 
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest) {
     }
     // Admin and exam_master see all papers
 
-    sql += ` ORDER BY ep.created_at DESC`;
+    sql += ` GROUP BY ep.id ORDER BY ep.created_at DESC`;
 
     const papers = await query<any[]>(sql, params);
 
@@ -103,12 +106,21 @@ export async function POST(request: NextRequest) {
       exam_date,
       duration,
       instructions,
+      programme_ids, // NEW: Array of programme IDs
     } = body;
 
     // Validate required fields
     if (!course_id || !exam_type || !academic_year || !semester) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Validate that at least one programme is selected
+    if (!programme_ids || !Array.isArray(programme_ids) || programme_ids.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one programme must be assigned' },
         { status: 400 }
       );
     }
@@ -139,45 +151,71 @@ export async function POST(request: NextRequest) {
 
     const hod_id = hodResult.length > 0 ? hodResult[0].id : null;
 
-    // Insert exam paper
-    const insertSql = `
-      INSERT INTO exam_papers (
-        paper_code, course_id, created_by, exam_type,
-        academic_year, semester, exam_date, duration,
-        instructions, status, hod_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)
-    `;
+    // Use transaction to create paper and assign programmes atomically
+    const paper_id = await transaction(async (connection) => {
+      // Insert exam paper
+      const insertSql = `
+        INSERT INTO exam_papers (
+          paper_code, course_id, created_by, exam_type,
+          academic_year, semester, exam_date, duration,
+          instructions, status, hod_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)
+      `;
 
-    const result = await query<any>(insertSql, [
-      paper_code,
-      course_id,
-      session.id,
-      exam_type,
-      academic_year,
-      semester,
-      exam_date || null,
-      duration || null,
-      instructions || null,
-      hod_id,
-    ]);
+      const result = await connection.execute(insertSql, [
+        paper_code,
+        course_id,
+        session.id,
+        exam_type,
+        academic_year,
+        semester,
+        exam_date || null,
+        duration || null,
+        instructions || null,
+        hod_id,
+      ]);
 
-    // Create workflow history entry
-    await query(
-      `INSERT INTO workflow_history (exam_paper_id, action, from_status, to_status, actor_id, actor_role)
-       VALUES (?, 'created', NULL, 'draft', ?, ?)`,
-      [result.insertId, session.id, session.role]
-    );
+      const newPaperId = (result as any)[0].insertId;
+
+      // Insert programme associations
+      if (programme_ids.length > 0) {
+        const programmeValues = programme_ids.map((progId: number) => [
+          newPaperId,
+          progId,
+        ]);
+
+        const placeholders = programme_ids.map(() => '(?, ?)').join(', ');
+        const flatValues = programmeValues.flat();
+
+        await connection.execute(
+          `INSERT INTO exam_paper_programmes (exam_paper_id, programme_id) VALUES ${placeholders}`,
+          flatValues
+        );
+      }
+
+      // Create workflow history entry
+      await connection.execute(
+        `INSERT INTO workflow_history (exam_paper_id, action, from_status, to_status, actor_id, actor_role)
+         VALUES (?, 'created', NULL, 'draft', ?, ?)`,
+        [newPaperId, session.id, session.role]
+      );
+
+      return newPaperId;
+    });
 
     return NextResponse.json({
       success: true,
-      paper_id: result.insertId,
+      paper_id,
       paper_code,
       message: 'Exam paper created successfully',
     });
   } catch (error) {
     console.error('POST /api/exam-papers error:', error);
     return NextResponse.json(
-      { error: 'Failed to create exam paper', details: String(error) },
+      { 
+        error: 'Failed to create exam paper', 
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }
@@ -224,6 +262,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Delete paper (CASCADE will handle exam_paper_programmes and exam_paper_questions)
     await query('DELETE FROM exam_papers WHERE id = ?', [id]);
 
     return NextResponse.json({

@@ -340,3 +340,18 @@ JOIN users u ON al.user_id = u.id
 ORDER BY al.created_at DESC
 LIMIT 10;
 
+
+
+-- Insert sample programmes (adjust college_id and department_id based on your setup)
+INSERT INTO programmes (code, name, level, duration_years, description) VALUES
+('BIT', 'Bachelor of Information Technology', 'bachelors', 3, 'Undergraduate programme in Information Technology'),
+('DIT', 'Diploma in Information Technology', 'diploma', 2, 'Diploma programme in Information Technology'),
+('BSTAT', 'Bachelor of Statistics', 'bachelors', 3, 'Undergraduate programme in Statistics'),
+('DSTAT', 'Diploma in Statistics', 'diploma', 2, 'Diploma programme in Statistics'),
+('MBA', 'Master of Business Administration', 'masters', 2, 'Postgraduate programme in Business Administration'),
+('BBA', 'Bachelor of Business Administration', 'bachelors', 3, 'Undergraduate programme in Business Administration'),
+('BOL', 'Bachelor of Organizational Leadership', 'bachelors', 3, 'Undergraduate programme in Organizational Leadership'),
+('BCS', 'Bachelor of Computer Science', 'bachelors', 3, 'Undergraduate programme in Computer Science'),
+('DCS', 'Diploma in Computer Science', 'diploma', 2, 'Diploma programme in Computer Science'),
+('BECO', 'Bachelor of Economics', 'bachelors', 3, 'Undergraduate programme in Economics');
+

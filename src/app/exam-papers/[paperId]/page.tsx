@@ -40,6 +40,18 @@ interface Question {
   study_unit_name: string;
 }
 
+interface Programme {
+  id: number;
+  code: string;
+  name: string;
+  level: string;
+  duration_years: number;
+  department_name: string | null;
+  department_code: string | null;
+  college_name: string | null;
+  college_code: string | null;
+}
+
 interface User {
   role: string;
   id: number;
@@ -52,6 +64,7 @@ export default function ViewExamPaperPage() {
 
   const [paper, setPaper] = useState<ExamPaper | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [programmes, setProgrammes] = useState<Programme[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -79,6 +92,7 @@ export default function ViewExamPaperPage() {
         const paperData = await paperRes.json();
         setPaper(paperData.paper);
         setQuestions(paperData.questions || []);
+        setProgrammes(paperData.programmes || []);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -140,6 +154,18 @@ export default function ViewExamPaperPage() {
     }
   };
 
+  // Helper to format date (e.g., "Dec 24 2025")
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'Not set';
+    const date = new Date(dateString);
+    const options: Intl.DateTimeFormatOptions = { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    };
+    return date.toLocaleDateString('en-US', options);
+  };
+
   const canEdit = user && paper && paper.created_by === user.id && paper.status === 'draft';
   const canSubmit = user && paper && paper.created_by === user.id && paper.status === 'draft' && questions.length > 0;
   const canApprove = user && paper && (
@@ -157,6 +183,13 @@ export default function ViewExamPaperPage() {
     ready_for_print: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
     printed: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
     published: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+  };
+
+  const levelColors: { [key: string]: string } = {
+    diploma: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+    bachelors: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    masters: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+    phd: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
   };
 
   if (loading) {
@@ -245,7 +278,7 @@ export default function ViewExamPaperPage() {
                 Exam Date
               </label>
               <p className="mt-1 text-gray-900 dark:text-white">
-                {new Date(paper.exam_date).toLocaleDateString()}
+                {formatDate(paper.exam_date)}
               </p>
             </div>
           )}
@@ -271,7 +304,7 @@ export default function ViewExamPaperPage() {
               Created At
             </label>
             <p className="mt-1 text-gray-900 dark:text-white">
-              {new Date(paper.created_at).toLocaleDateString()}
+              {formatDate(paper.created_at)}
             </p>
           </div>
         </div>
@@ -284,6 +317,86 @@ export default function ViewExamPaperPage() {
             <p className="mt-1 whitespace-pre-wrap text-gray-900 dark:text-white">
               {paper.instructions}
             </p>
+          </div>
+        )}
+      </div>
+
+      {/* Programmes Section */}
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Programmes ({programmes.length})
+          </h2>
+          {canEdit && (
+            <Link
+              href={`/exam-papers/${paperId}/edit`}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            >
+              Edit Programmes
+            </Link>
+          )}
+        </div>
+
+        {programmes.length === 0 ? (
+          <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 py-8 text-center dark:border-gray-600 dark:bg-gray-700/50">
+            <div className="text-4xl">🎓</div>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              No programmes assigned yet
+            </p>
+            {canEdit && (
+              <Link
+                href={`/exam-papers/${paperId}/edit`}
+                className="mt-3 inline-block text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              >
+                Assign Programmes →
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {programmes.map((programme) => (
+              <div
+                key={programme.id}
+                className="rounded-lg border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-4 transition hover:shadow-md dark:border-gray-700 dark:from-gray-800 dark:to-gray-800/50"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                    {programme.code}
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      levelColors[programme.level] || 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {programme.level.charAt(0).toUpperCase() + programme.level.slice(1)}
+                  </span>
+                </div>
+                <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {programme.name}
+                </p>
+                {(programme.department_name || programme.college_name) && (
+                  <div className="mt-2 space-y-1 border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    {programme.department_name && (
+                      <p className="flex items-center gap-1">
+                        <span className="font-medium">Dept:</span>
+                        <span>{programme.department_name}</span>
+                      </p>
+                    )}
+                    {programme.college_name && (
+                      <p className="flex items-center gap-1">
+                        <span className="font-medium">College:</span>
+                        <span>{programme.college_name}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+                {programme.duration_years && (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Duration: {programme.duration_years} year{programme.duration_years > 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

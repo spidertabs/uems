@@ -62,9 +62,7 @@ NOTE: Dont generate files that I have ...I already have my data in my database s
 │   └── 📜 tailwind.css                             # Tailwind v4                ✅️
 │ 
 ├── 📂 src/
-│   │
-│   ├── 📜 middleware.ts
-│   │   
+│   │ 
 │   ├── 📂 app/
 │   │   │
 │   │   ├── 📂 (auth)/
@@ -136,9 +134,8 @@ NOTE: Dont generate files that I have ...I already have my data in my database s
 │   │   │
 │   │   ├── 📂 api/
 │   │   │   ├── 📂 auth/
+│   │   │   │   ├── layout.tsx
 │   │   │   │   ├── login/route.ts
-│   │   │   │   ├── logout/route.ts
-│   │   │   │   ├── me/route.ts
 │   │   │   │   └── register/route.ts
 │   │   │
 │   │   │   ├── 📂 stats/
@@ -148,6 +145,11 @@ NOTE: Dont generate files that I have ...I already have my data in my database s
 │   │   │   │   ├── route.ts
 │   │   │   │   ├── create/route.ts
 │   │   │   │   └── [id]/route.ts
+│   │   │
+│   │   │   ├── 📂 programmes/
+│   │   │   │   ├── route.ts
+│   │   │   │   └── [id]/
+│   │   │   │       └── route.ts
 │   │   │
 │   │   │   ├── 📂 exam-papers/
 │   │   │   │   ├── route.ts
@@ -196,7 +198,7 @@ NOTE: Dont generate files that I have ...I already have my data in my database s
 │   ├── 📂 config/
 │   │   └── index.ts                                                             ✅️
 │   │
-│   └── 📜 proxy.ts                                                             ✅️
+│   └── 📜 middleware.ts                                                         ✅️
 │
 │
 └── 📜 README.md                                     # Documentation
