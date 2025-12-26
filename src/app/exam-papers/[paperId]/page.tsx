@@ -223,13 +223,13 @@ export default function ViewExamPaperPage() {
     if (!shuffledOptions || !Array.isArray(shuffledOptions)) return null;
 
     return (
-      <div className="mt-2 ml-6 space-y-1.5">
+      <div className="mt-3 ml-8 space-y-2">
         {shuffledOptions.map((option, idx) => (
           <div
             key={idx}
-            className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300"
+            className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300"
           >
-            <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span>
+            <span className="font-semibold mt-0.5">{String.fromCharCode(65 + idx)}.</span>
             <span className="flex-1">{option}</span>
           </div>
         ))}
@@ -265,9 +265,11 @@ export default function ViewExamPaperPage() {
     hod_review: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
     hod_approved: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     hod_rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    dean_approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+    dean_rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     ready_for_print: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
     printed: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
-    published: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+    published: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
   };
 
   const levelColors: { [key: string]: string } = {
@@ -277,9 +279,27 @@ export default function ViewExamPaperPage() {
     phd: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
   };
 
+  const difficultyColors: { [key: string]: string } = {
+    Easy: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    Medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    Hard: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  };
+
+  const bloomColors: { [key: string]: string } = {
+    Remember: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    Understand: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+    Apply: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    Analyze: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    Evaluate: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    Create: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  };
+
+  // Calculate total marks from questions
+  const calculatedMarks = questions.reduce((sum, q) => sum + q.marks, 0);
+
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
+      <div className="flex h-96 items-center justify-center lg:pl-64">
         <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
       </div>
     );
@@ -287,8 +307,16 @@ export default function ViewExamPaperPage() {
 
   if (!paper) {
     return (
-      <div className="text-center">
-        <p className="text-gray-600 dark:text-gray-400">Paper not found</p>
+      <div className="flex h-96 items-center justify-center lg:pl-64">
+        <div className="text-center">
+          <p className="text-gray-600 dark:text-gray-400">Paper not found</p>
+          <Link
+            href="/exam-papers"
+            className="mt-4 inline-block text-blue-600 hover:underline dark:text-blue-400"
+          >
+            ← Back to Papers
+          </Link>
+        </div>
       </div>
     );
   }
@@ -296,11 +324,23 @@ export default function ViewExamPaperPage() {
   return (
     <div className="space-y-6 lg:pl-64">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{paper.paper_code}</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{paper.paper_code}</h1>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                statusColors[paper.status]
+              }`}
+            >
+              {paper.status.replace(/_/g, ' ').toUpperCase()}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             {paper.course_code} - {paper.course_title}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            {paper.exam_type} • {paper.academic_year} • Semester {paper.semester}
           </p>
         </div>
         <Link
@@ -311,13 +351,62 @@ export default function ViewExamPaperPage() {
         </Link>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            {questions.length}
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Questions</div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+            {calculatedMarks}
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Actual Marks</div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+            {paper.total_marks}
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Target Marks</div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+            {paper.duration}
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Minutes</div>
+        </div>
+      </div>
+
+      {/* Warning if marks mismatch */}
+      {calculatedMarks !== paper.total_marks && (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-900/20">
+          <div className="flex items-center gap-2">
+            <span className="text-orange-600 dark:text-orange-400">⚠️</span>
+            <p className="text-sm text-orange-800 dark:text-orange-200">
+              <strong>Marks Mismatch:</strong> Total marks from questions ({calculatedMarks}) doesn&apos;t
+              match target marks ({paper.total_marks})
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Paper Details */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Paper Details</h2>
-          <span className={`rounded-full px-4 py-1 text-sm font-medium ${statusColors[paper.status]}`}>
-            {paper.status.replace(/_/g, ' ').toUpperCase()}
-          </span>
+          {canEdit && (
+            <Link
+              href={`/exam-papers/${paperId}/edit`}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            >
+              Edit Details →
+            </Link>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -326,13 +415,6 @@ export default function ViewExamPaperPage() {
               Exam Type
             </label>
             <p className="mt-1 text-gray-900 dark:text-white">{paper.exam_type}</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Total Marks
-            </label>
-            <p className="mt-1 text-gray-900 dark:text-white">{paper.total_marks}</p>
           </div>
 
           <div>
@@ -358,15 +440,6 @@ export default function ViewExamPaperPage() {
             </div>
           )}
 
-          {paper.duration && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Duration
-              </label>
-              <p className="mt-1 text-gray-900 dark:text-white">{paper.duration} minutes</p>
-            </div>
-          )}
-
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Created By
@@ -383,11 +456,11 @@ export default function ViewExamPaperPage() {
         </div>
 
         {paper.instructions && (
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div className="mt-6 border-t border-gray-200 pt-6 dark:border-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Instructions
             </label>
-            <p className="mt-1 whitespace-pre-wrap text-gray-900 dark:text-white">
+            <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300">
               {paper.instructions}
             </p>
           </div>
@@ -405,7 +478,7 @@ export default function ViewExamPaperPage() {
               href={`/exam-papers/${paperId}/edit`}
               className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
             >
-              Edit Programmes
+              Manage Programmes →
             </Link>
           )}
         </div>
@@ -483,7 +556,7 @@ export default function ViewExamPaperPage() {
               href={`/exam-papers/${paperId}/select-questions`}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
             >
-              {questions.length === 0 ? 'Add Questions' : 'Manage Questions'}
+              {questions.length === 0 ? '➕ Add Questions' : '✏️ Manage Questions'}
             </Link>
           )}
         </div>
@@ -491,48 +564,72 @@ export default function ViewExamPaperPage() {
         {questions.length === 0 ? (
           <div className="py-12 text-center">
             <div className="text-6xl">📝</div>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">No questions added yet</p>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">No questions added yet</p>
+            {canEdit && (
+              <Link
+                href={`/exam-papers/${paperId}/select-questions`}
+                className="mt-4 inline-block rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              >
+                Add Questions
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
             {questions.map((question, index) => (
               <div
                 key={question.id}
-                className="rounded-lg border border-gray-200 p-4 dark:border-gray-700"
+                className="rounded-lg border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50"
               >
-                <div className="mb-2 flex items-start justify-between">
-                  <div className="flex gap-2">
-                    <span className="font-semibold text-gray-900 dark:text-white">Q{index + 1}.</span>
-                    <span className="rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                      {question.marks} marks
+                <div className="mb-3 flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                      {index + 1}
                     </span>
-                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-700">
-                      Section {question.section}
-                    </span>
-                    {question.option_order && (
-                      <span className="rounded bg-cyan-100 px-2 py-0.5 text-xs text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200">
-                        🔀 Shuffled
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                        {question.marks} marks
                       </span>
-                    )}
+                      <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                        Section {question.section}
+                      </span>
+                      {question.option_order && (
+                        <span className="rounded-full bg-cyan-100 px-2.5 py-1 text-xs font-medium text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200">
+                          🔀 Shuffled
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2 text-xs">
-                    <span className="rounded bg-yellow-100 px-2 py-0.5 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                    <span
+                      className={`rounded-full px-2.5 py-1 font-medium ${
+                        difficultyColors[question.difficulty_level] ||
+                        'bg-gray-100 text-gray-800'
+                      }`}
+                    >
                       {question.difficulty_level}
                     </span>
-                    <span className="rounded bg-blue-100 px-2 py-0.5 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                    <span
+                      className={`rounded-full px-2.5 py-1 font-medium ${
+                        bloomColors[question.bloom_taxonomy] || 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
                       {question.bloom_taxonomy}
                     </span>
                   </div>
                 </div>
-                <p className="text-gray-900 dark:text-white">{question.question_text}</p>
+
+                <p className="text-base font-medium text-gray-900 dark:text-white mb-2">
+                  {question.question_text}
+                </p>
 
                 {/* Show MCQ options if available */}
                 {question.question_type === 'multiple_choice' &&
                   renderMCQOptions(question.shuffledOptions)}
 
                 {question.study_unit_name && (
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Study Unit: {question.study_unit_name}
+                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                    📚 Study Unit: {question.study_unit_name}
                   </p>
                 )}
               </div>
@@ -542,19 +639,10 @@ export default function ViewExamPaperPage() {
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-3">
-        {canEdit && (
-          <Link
-            href={`/exam-papers/${paperId}/edit`}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-          >
-            Edit Details
-          </Link>
-        )}
-
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <Link
           href={`/exam-papers/${paperId}/preview`}
-          className="rounded-lg border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50 dark:border-blue-600 dark:text-blue-400 dark:hover:bg-blue-900/20"
+          className="rounded-lg border border-blue-600 px-6 py-2.5 text-sm font-medium text-blue-700 transition hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20"
         >
           Preview Paper
         </Link>
@@ -563,9 +651,9 @@ export default function ViewExamPaperPage() {
           <button
             onClick={handleSubmit}
             disabled={processing}
-            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {processing ? 'Submitting...' : 'Submit for Approval'}
+            {processing ? 'Submitting...' : '📤 Submit for Approval'}
           </button>
         )}
 
@@ -576,7 +664,7 @@ export default function ViewExamPaperPage() {
                 setApprovalAction('reject');
                 setShowApprovalModal(true);
               }}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+              className="rounded-lg bg-red-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-red-700"
             >
               Reject
             </button>
@@ -585,9 +673,9 @@ export default function ViewExamPaperPage() {
                 setApprovalAction('approve');
                 setShowApprovalModal(true);
               }}
-              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700"
+              className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-green-700"
             >
-              Approve
+              ✅ Approve
             </button>
           </>
         )}
@@ -595,10 +683,10 @@ export default function ViewExamPaperPage() {
 
       {/* Approval Modal */}
       {showApprovalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 dark:bg-gray-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
             <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-              {approvalAction === 'approve' ? 'Approve Paper' : 'Reject Paper'}
+              {approvalAction === 'approve' ? '✅ Approve Paper' : '❌ Reject Paper'}
             </h3>
             <textarea
               value={comments}
@@ -609,13 +697,14 @@ export default function ViewExamPaperPage() {
               rows={4}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
-            <div className="mt-4 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowApprovalModal(false);
                   setComments('');
                 }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                disabled={processing}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>

@@ -158,7 +158,7 @@ export default function PreviewExamPaperPage() {
   const canUseTwoColumns = (options: string[]): boolean => {
     // Use two columns if all options are short (less than 50 characters)
     const maxLength = Math.max(...options.map((opt) => opt.length));
-    return maxLength < 50;
+    return maxLength < 50 && options.length >= 4;
   };
 
   // Helper function to render MCQ options
@@ -173,8 +173,8 @@ export default function PreviewExamPaperPage() {
         <div className="mt-3 ml-6 grid grid-cols-2 gap-x-6 gap-y-2">
           {shuffledOptions.map((option, idx) => (
             <div key={idx} className="flex items-start gap-3">
-              <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span>
-              <span className="flex-1">{option}</span>
+              <span className="font-semibold print-text-black">{String.fromCharCode(65 + idx)}.</span>
+              <span className="flex-1 print-text-black">{option}</span>
             </div>
           ))}
         </div>
@@ -185,8 +185,8 @@ export default function PreviewExamPaperPage() {
         <div className="mt-3 ml-6 space-y-2">
           {shuffledOptions.map((option, idx) => (
             <div key={idx} className="flex items-start gap-3">
-              <span className="font-semibold">{String.fromCharCode(65 + idx)}.</span>
-              <span className="flex-1">{option}</span>
+              <span className="font-semibold print-text-black">{String.fromCharCode(65 + idx)}.</span>
+              <span className="flex-1 print-text-black">{option}</span>
             </div>
           ))}
         </div>
@@ -218,14 +218,26 @@ export default function PreviewExamPaperPage() {
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
+      <div className="flex h-96 items-center justify-center lg:pl-64">
         <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   if (!paper) {
-    return <div className="text-center">Paper not found</div>;
+    return (
+      <div className="flex h-96 items-center justify-center lg:pl-64">
+        <div className="text-center">
+          <p className="text-gray-600 dark:text-gray-400">Paper not found</p>
+          <Link
+            href="/exam-papers"
+            className="mt-4 inline-block text-blue-600 hover:underline dark:text-blue-400"
+          >
+            ← Back to Papers
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   // Group questions by section
@@ -245,9 +257,14 @@ export default function PreviewExamPaperPage() {
       {/* Print Controls - Hidden when printing */}
       <div className="no-print sticky top-0 z-10 bg-white p-4 shadow-md dark:bg-gray-800">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-            Preview: {paper.paper_code}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              Preview: {paper.paper_code}
+            </h1>
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+              {questions.length} Questions
+            </span>
+          </div>
           <div className="flex gap-3">
             <Link
               href={`/exam-papers/${paperId}`}
@@ -259,7 +276,7 @@ export default function PreviewExamPaperPage() {
               onClick={handlePrint}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
             >
-              🖨️ Print
+              🖨️ Print / Save as PDF
             </button>
           </div>
         </div>
@@ -267,63 +284,90 @@ export default function PreviewExamPaperPage() {
 
       {/* Paper Preview - A4 Size */}
       <div
-        className="mx-auto my-8 bg-white p-10 shadow-lg dark:bg-gray-800 print:m-0 print:shadow-none"
+        className="mx-auto my-8 bg-white p-10 shadow-lg dark:bg-gray-800 print:m-0 print:bg-white print:shadow-none"
         style={{ width: '210mm', minHeight: '297mm' }}
       >
         {/* Header with KIU Logo and College */}
-        <div className="mb-6 pb-4">
+        <div className="mb-2 border-gray-900 pb-4 print:border-gray-900">
           {/* KIU Logo - Centered - Dynamic based on theme */}
           <div className="mb-4 flex justify-center">
             <img
-              src={isDarkMode ? '/static/images/kiu-Photoroom_white.png' : '/static/images/kiu-Photoroom_black.png'}
+              src={
+                isDarkMode
+                  ? '/static/images/kiu-Photoroom_white.png'
+                  : '/static/images/kiu-Photoroom_black.png'
+              }
               alt="KIU Logo"
-              className="h-20 w-auto"
+              className="h-20 w-auto print:hidden"
+            />
+            {/* Separate logo for print - always use black */}
+            <img
+              src="/static/images/kiu-Photoroom_black.png"
+              alt="KIU Logo"
+              className="hidden h-20 w-auto print:block"
             />
           </div>
 
           <div className="text-center">
-            <h1 className="mb-2 text-2xl font-bold uppercase">Kampala International University</h1>
+            <h1 className="mb-2 text-2xl font-bold uppercase text-gray-900 dark:text-white print:text-gray-900">
+              Kampala International University
+            </h1>
 
             {/* College Name - Prominent Display */}
             {paper.college_name && (
               <div className="mb-3 mt-2">
-                <p className="text-lg font-bold uppercase text-gray-800 dark:text-gray-200">
+                <p className="text-lg font-bold uppercase text-gray-800 dark:text-gray-200 print:text-gray-800">
                   {paper.college_name}
                 </p>
               </div>
             )}
 
-            <h2 className="mb-2 text-xl font-semibold">
+            <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white print:text-gray-900">
               {paper.exam_type} EXAMINATION {paper.academic_year}
             </h2>
-            <h3>
-              <p className="font-semibold">
-                Time Allowed: {Math.floor(paper.duration / 60)} hour
-                {Math.floor(paper.duration / 60) !== 1 ? 's' : ''}
-              </p>
-            </h3>
+            <p className="font-semibold text-gray-900 dark:text-white print:text-gray-900">
+              Time Allowed: {Math.floor(paper.duration / 60)} hour
+              {Math.floor(paper.duration / 60) !== 1 ? 's' : ''}
+              {paper.duration % 60 > 0 && ` ${paper.duration % 60} minutes`}
+            </p>
           </div>
         </div>
 
         {/* Course Information */}
-        <div className="mb-6 p-4">
+        <div className="mb-6 rounded-lg border-gray-300 px-4 py-3 dark:border-gray-600 print:border-gray-300">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="font-semibold">Course Code:</p>
-              <p className="text-lg font-bold">{paper.course_code}</p>
+              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700">
+                Course Code:
+              </p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">
+                {paper.course_code}
+              </p>
             </div>
             <div>
-              <p className="font-semibold">Course Title:</p>
-              <p className="text-lg font-bold">{paper.course_title}</p>
+              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700">
+                Course Title:
+              </p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">
+                {paper.course_title}
+              </p>
             </div>
             <div>
-              <p className="font-semibold">Date:</p>
-              <p className="text-lg font-bold">{formatDate(paper.exam_date)}</p>
+              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700">
+                Date:
+              </p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">
+                {formatDate(paper.exam_date)}
+              </p>
             </div>
             <div>
-              <p className="font-semibold">Programme(s):</p>
-              <p className="text-lg font-bold">
-                {programmes.length > 0 ? programmes.map((p) => p.code).join(', ') : '_______________'}
+              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700">
+                Programme(s):
+              </p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">
+                {programmes.length > 0
+                  ? programmes.map((p) => p.code).join(', ')
+                  : '_______________'}
                 <span className="px-2">
                   {' '}
                   / {year} : {semesterInYear}{' '}
@@ -334,100 +378,188 @@ export default function PreviewExamPaperPage() {
         </div>
 
         {/* Instructions */}
-        {paper.instructions && (
-          <div className="mb-6 bg-gray-50 p-4 dark:bg-gray-700">
-            <p className="mb-2 font-bold uppercase">Instructions to Candidates:</p>
-            <div className="whitespace-pre-wrap text-sm">{paper.instructions}</div>
-          </div>
-        )}
+        <div className="mb-6 rounded-lg bg-gray-50 p-4 dark:bg-gray-700 print:bg-gray-50">
+          <p className="mb-2 font-bold uppercase text-gray-900 dark:text-white print:text-gray-900">
+            Instructions to Candidates:
+          </p>
+          {paper.instructions ? (
+            <div className="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200 print:text-gray-800">
+              {paper.instructions}
+            </div>
+          ) : (
+            <ul className="list-inside list-disc space-y-1 text-sm text-gray-800 dark:text-gray-200 print:text-gray-800">
+              <li>All answers and Rough work should be booklet provided.</li>
+              <li>Write clearly and legibly.</li>
+              <li>Show all working for problem-solving questions.</li>
+              <li>Calculators may be used where appropriate.</li>
+            </ul>
+          )}
+        </div>
+
+        
 
         {/* Questions by Section */}
-        <div className="space-y-6">
-          {Object.entries(sections)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([section, sectionQuestions]) => (
-              <div key={section} className="break-inside-avoid">
-                <h3 className="mb-4 pb-2 text-lg font-bold uppercase">
-                  Section {section}
-                  <span className="ml-4 text-sm font-normal">
-                    ({sectionQuestions.reduce((sum, q) => sum + q.marks, 0)} Marks)
-                  </span>
-                </h3>
+        <div className="space-y-8">
+          {Object.entries(sections).length === 0 ? (
+            <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
+              <p className="text-gray-600 dark:text-gray-400 print:text-gray-600">
+                No questions available
+              </p>
+            </div>
+          ) : (
+            Object.entries(sections)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([section, sectionQuestions]) => (
+                <div key={section} className="break-inside-avoid">
+                  <div className="mb-4 border-b-2 border-gray-700 pb-2 dark:border-gray-300 print:border-gray-700">
+                    <h3 className="text-lg font-bold uppercase text-gray-900 dark:text-white print:text-gray-900">
+                      Section {section}
+                      <span className="ml-4 text-sm font-normal">
+                        ({sectionQuestions.reduce((sum, q) => sum + q.marks, 0)} Marks)
+                      </span>
+                    </h3>
+                  </div>
 
-                <div className="space-y-6">
-                  {sectionQuestions
-                    .sort((a, b) => a.sequence_order - b.sequence_order)
-                    .map((question, index) => (
-                      <div key={index} className="break-inside-avoid">
-                        <div className="mb-2 flex items-start">
-                          <span className="mr-2 font-bold">{index + 1}.</span>
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <p className="text-justify">{question.question_text}</p>
+                  <div className="space-y-6">
+                    {sectionQuestions
+                      .sort((a, b) => a.sequence_order - b.sequence_order)
+                      .map((question, index) => (
+                        <div key={index} className="break-inside-avoid">
+                          <div className="flex items-start">
+                            <span className="mr-3 font-bold text-gray-900 dark:text-white print:text-gray-900">
+                              {index + 1}.
+                            </span>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <p className="text-justify text-gray-900 dark:text-white print:text-gray-900">
+                                    {question.question_text}
+                                  </p>
 
-                                {/* Show MCQ options if available */}
-                                {question.question_type === 'multiple_choice' &&
-                                  renderMCQOptions(question.shuffledOptions)}
+                                  {/* Show MCQ options if available */}
+                                  {question.question_type === 'multiple_choice' &&
+                                    renderMCQOptions(question.shuffledOptions)}
+                                </div>
+                                <span className="flex-shrink-0 font-semibold text-gray-900 dark:text-white print:text-gray-900">
+                                  [{question.marks} mark{question.marks !== 1 ? 's' : ''}]
+                                </span>
                               </div>
-                              <span className="ml-4 font-semibold">
-                                [{question.marks} mark{question.marks !== 1 ? 's' : ''}]
-                              </span>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+          )}
         </div>
 
         {/* Footer */}
-        <div className="mt-12 pt-4 text-center text-xs">
-          <p>*** END OF EXAMINATION ***</p>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            {paper.paper_code} | Page 1 of 1
-          </p>
+        <div className="mt-12 border-t-2 border-gray-900 pt-4 text-center text-xs text-gray-700 dark:border-gray-300 dark:text-gray-400 print:border-gray-900 print:text-gray-700">
+          <p className="font-bold">*** END OF EXAMINATION ***</p>
+          <p className="mt-2">{paper.paper_code} | Page 1 of 1</p>
         </div>
       </div>
 
+      {/* Print Styles */}
       <style jsx global>{`
         @media print {
+          /* Hide non-print elements */
           .no-print {
             display: none !important;
           }
 
+          /* Reset body */
           body {
             margin: 0;
             padding: 0;
+            background: white !important;
           }
 
+          /* Page setup */
           @page {
             size: A4;
             margin: 20mm;
           }
 
+          /* Prevent breaks inside elements */
           .break-inside-avoid {
             page-break-inside: avoid;
+            break-inside: avoid;
           }
-          
+
           /* Force light mode colors for print */
-          .dark\\:bg-gray-800 {
+          .dark\\:bg-gray-800,
+          .dark\\:bg-gray-700 {
             background-color: white !important;
           }
-          
+
           .dark\\:text-white,
-          .dark\\:text-gray-200 {
+          .dark\\:text-gray-200,
+          .dark\\:text-gray-300 {
             color: black !important;
           }
-          
-          .dark\\:bg-gray-700 {
+
+          .dark\\:border-gray-600,
+          .dark\\:border-gray-500,
+          .dark\\:border-gray-300 {
+            border-color: #d1d5db !important;
+          }
+
+          /* Ensure black text for print */
+          .print-text-black,
+          .print\\:text-gray-900,
+          .print\\:text-gray-800,
+          .print\\:text-gray-700 {
+            color: black !important;
+          }
+
+          /* Print-specific styles */
+          .print\\:bg-white {
+            background-color: white !important;
+          }
+
+          .print\\:bg-gray-50 {
             background-color: #f9fafb !important;
           }
-          
-          .dark\\:text-gray-400 {
-            color: #6b7280 !important;
+
+          .print\\:border-gray-300 {
+            border-color: #d1d5db !important;
+          }
+
+          .print\\:border-gray-400 {
+            border-color: #9ca3af !important;
+          }
+
+          .print\\:border-gray-700 {
+            border-color: #374151 !important;
+          }
+
+          .print\\:border-gray-900 {
+            border-color: #111827 !important;
+          }
+
+          .print\\:shadow-none {
+            box-shadow: none !important;
+          }
+
+          .print\\:m-0 {
+            margin: 0 !important;
+          }
+
+          .print\\:block {
+            display: block !important;
+          }
+
+          .print\\:hidden {
+            display: none !important;
+          }
+
+          /* Print quality */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
         }
       `}</style>
