@@ -70,16 +70,16 @@ export default function ExamPapersPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (paperId: number) => {
     if (!confirm('Are you sure you want to delete this exam paper? This action cannot be undone.')) return;
 
     try {
-      const response = await fetch(`/api/exam-papers/${id}`, {
+      const response = await fetch(`/api/exam-papers/${paperId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        setPapers(papers.filter((p) => p.id !== id));
+        setPapers(papers.filter((p) => p.id !== paperId));
         alert('Exam paper deleted successfully');
       } else {
         const error = await response.json();

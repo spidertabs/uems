@@ -36,7 +36,7 @@ interface SelectedQuestion {
 export default function SelectQuestionsPage() {
   const router = useRouter();
   const params = useParams();
-  const paperId = params.paperId;
+  const paperId = params.paperId as string;
 
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -263,7 +263,6 @@ export default function SelectQuestionsPage() {
       console.log('Making API call to:', `/api/courses/${courseId}/study-units`);
       const response = await fetch(`/api/courses/${courseId}/study-units`);
       console.log('Study units API response status:', response.status);
-      console.log('Study units API response headers:', response.headers);
 
       // Get the raw response text first
       const responseText = await response.text();
@@ -281,8 +280,6 @@ export default function SelectQuestionsPage() {
         }
 
         console.log('Study units data:', data);
-        console.log('Study units array:', data.study_units);
-        console.log('First study unit:', data.study_units?.[0]);
 
         // Support both response formats
         const unitsArray = data.study_units || data.studyUnits || [];
@@ -292,7 +289,6 @@ export default function SelectQuestionsPage() {
           console.log('Set study units state with', unitsArray.length, 'items');
         } else {
           console.error('study_units is not an array:', data);
-          console.error('Type of study_units:', typeof unitsArray);
           setStudyUnits([]);
         }
       } else {

@@ -102,49 +102,59 @@ export default function PreviewExamPaperPage() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    if (paperId) {
+      fetchData();
+    }
   }, [paperId]);
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`/api/exam-papers/${paperId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setPaper(data.paper);
+      
+      if (!response.ok) {
+        console.error('Failed to fetch paper:', response.statusText);
+        setPaper(null);
+        setLoading(false);
+        return;
+      }
 
-        // Parse and apply shuffle order to questions
-        const parsedQuestions = (data.questions || []).map((q: Question) => {
-          const parsedOptions = parseOptions(q.options);
+      const data = await response.json();
+      setPaper(data.paper);
 
-          if (q.question_type === 'multiple_choice' && parsedOptions) {
-            // If we have a saved order, use it
-            let shuffledOptions: string[];
+      // Parse and apply shuffle order to questions
+      const parsedQuestions = (data.questions || []).map((q: Question) => {
+        const parsedOptions = parseOptions(q.options);
 
-            if (q.option_order && Array.isArray(q.option_order)) {
-              shuffledOptions = applySavedOrder(parsedOptions, q.option_order);
-            } else {
-              // No saved order, just use original
-              shuffledOptions = parsedOptions;
-            }
+        if (q.question_type === 'multiple_choice' && parsedOptions) {
+          // If we have a saved order, use it
+          let shuffledOptions: string[];
 
-            return {
-              ...q,
-              options: parsedOptions,
-              shuffledOptions,
-            };
+          if (q.option_order && Array.isArray(q.option_order)) {
+            shuffledOptions = applySavedOrder(parsedOptions, q.option_order);
+          } else {
+            // No saved order, just use original
+            shuffledOptions = parsedOptions;
           }
 
           return {
             ...q,
             options: parsedOptions,
+            shuffledOptions,
           };
-        });
+        }
 
-        setQuestions(parsedQuestions);
-        setProgrammes(data.programmes || []);
-      }
+        return {
+          ...q,
+          options: parsedOptions,
+        };
+      });
+
+      setQuestions(parsedQuestions);
+      setProgrammes(data.programmes || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      setPaper(null);
     } finally {
       setLoading(false);
     }
@@ -395,8 +405,6 @@ export default function PreviewExamPaperPage() {
             </ul>
           )}
         </div>
-
-        
 
         {/* Questions by Section */}
         <div className="space-y-8">
