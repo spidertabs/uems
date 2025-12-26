@@ -35,8 +35,10 @@ export default function EditExamPaperPage() {
   });
 
   useEffect(() => {
-    fetchPaper();
-    fetchProgrammes();
+    if (paperId) {
+      fetchPaper();
+      fetchProgrammes();
+    }
   }, [paperId]);
 
   const fetchProgrammes = async () => {
@@ -53,30 +55,36 @@ export default function EditExamPaperPage() {
 
   const fetchPaper = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`/api/exam-papers/${paperId}`);
-      if (response.ok) {
-        const data = await response.json();
-        const paper = data.paper;
-        
-        setFormData({
-          exam_type: paper.exam_type,
-          academic_year: paper.academic_year,
-          semester: paper.semester,
-          exam_date: paper.exam_date ? paper.exam_date.split('T')[0] : '',
-          duration: paper.duration || 60,
-          instructions: paper.instructions || '',
-        });
-
-        // Set selected programmes if they exist
-        if (data.programmes && Array.isArray(data.programmes)) {
-          setSelectedProgrammes(data.programmes.map((p: any) => p.id));
-        }
-      } else {
+      
+      if (!response.ok) {
+        console.error('Failed to load paper:', response.statusText);
         alert('Failed to load paper details');
         router.push('/exam-papers');
+        return;
+      }
+
+      const data = await response.json();
+      const paper = data.paper;
+      
+      setFormData({
+        exam_type: paper.exam_type,
+        academic_year: paper.academic_year,
+        semester: paper.semester,
+        exam_date: paper.exam_date ? paper.exam_date.split('T')[0] : '',
+        duration: paper.duration || 60,
+        instructions: paper.instructions || '',
+      });
+
+      // Set selected programmes if they exist
+      if (data.programmes && Array.isArray(data.programmes)) {
+        setSelectedProgrammes(data.programmes.map((p: any) => p.id));
       }
     } catch (error) {
       console.error('Failed to fetch paper:', error);
+      alert('Error loading paper details');
+      router.push('/exam-papers');
     } finally {
       setLoading(false);
     }

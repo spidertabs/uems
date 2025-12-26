@@ -1,4 +1,4 @@
-// src/app/api/exam-papers/[id]/route.ts
+// src/app/api/exam-papers/[paperId]/route.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { query, transaction } from '@/lib/db';
@@ -6,7 +6,7 @@ import { verifyAuth } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: { paperId: string } | Promise<{ paperId: string }> }
 ) {
   try {
     const session = await verifyAuth(request);
@@ -15,7 +15,9 @@ export async function GET(
     }
 
     const resolvedParams = params instanceof Promise ? await params : params;
-    const paperId = resolvedParams.id;
+    const paperId = resolvedParams.paperId;
+
+    console.log('Fetching paper with ID:', paperId);
 
     // Fetch paper details with college name
     const paperSql = `
@@ -84,7 +86,7 @@ export async function GET(
       JOIN questions q ON epq.question_id = q.id
       LEFT JOIN study_units su ON q.study_unit_id = su.id
       WHERE epq.exam_paper_id = ?
-      ORDER BY epq.sequence_order ASC
+      ORDER BY epq.section ASC, epq.sequence_order ASC
     `;
 
     const questions = await query<any[]>(questionsSql, [paperId]);
@@ -93,9 +95,10 @@ export async function GET(
     const processedQuestions = questions.map(q => ({
       ...q,
       options: q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : null,
+      option_order: q.option_order ? (typeof q.option_order === 'string' ? JSON.parse(q.option_order) : q.option_order) : null,
     }));
 
-    // ✨ NEW: Fetch associated programmes
+    // Fetch associated programmes
     const programmesSql = `
       SELECT 
         p.id,
@@ -121,10 +124,10 @@ export async function GET(
       success: true,
       paper,
       questions: processedQuestions,
-      programmes, // ✨ NEW: Include programmes in response
+      programmes,
     });
   } catch (error) {
-    console.error('GET /api/exam-papers/[id] error:', error);
+    console.error('GET /api/exam-papers/[paperId] error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch exam paper', details: String(error) },
       { status: 500 }
@@ -134,7 +137,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: { paperId: string } | Promise<{ paperId: string }> }
 ) {
   try {
     const session = await verifyAuth(request);
@@ -143,8 +146,10 @@ export async function PUT(
     }
 
     const resolvedParams = params instanceof Promise ? await params : params;
-    const paperId = resolvedParams.id;
+    const paperId = resolvedParams.paperId;
     const body = await request.json();
+
+    console.log('Updating paper with ID:', paperId);
 
     // Check if paper exists and get current status
     const paperResult = await query<any[]>(
@@ -173,7 +178,7 @@ export async function PUT(
       );
     }
 
-    // ✨ NEW: Use transaction to update paper and programmes atomically
+    // Use transaction to update paper and programmes atomically
     await transaction(async (connection) => {
       // Update paper fields
       const updateFields: string[] = [];
@@ -207,7 +212,7 @@ export async function PUT(
         await connection.execute(updateSql, updateValues);
       }
 
-      // ✨ NEW: Update programmes if provided
+      // Update programmes if provided
       if (body.programme_ids && Array.isArray(body.programme_ids)) {
         const programmeIds = body.programme_ids;
 
@@ -240,7 +245,7 @@ export async function PUT(
       }
     });
 
-    // ✨ NEW: Fetch updated programmes to return
+    // Fetch updated programmes to return
     const programmes = await query<any[]>(
       `SELECT 
         p.id,
@@ -257,10 +262,10 @@ export async function PUT(
     return NextResponse.json({
       success: true,
       message: 'Exam paper updated successfully',
-      programmes, // ✨ NEW: Include updated programmes
+      programmes,
     });
   } catch (error) {
-    console.error('PUT /api/exam-papers/[id] error:', error);
+    console.error('PUT /api/exam-papers/[paperId] error:', error);
     return NextResponse.json(
       { 
         error: 'Failed to update exam paper', 
@@ -273,7 +278,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: { paperId: string } | Promise<{ paperId: string }> }
 ) {
   try {
     const session = await verifyAuth(request);
@@ -282,7 +287,9 @@ export async function DELETE(
     }
 
     const resolvedParams = params instanceof Promise ? await params : params;
-    const paperId = resolvedParams.id;
+    const paperId = resolvedParams.paperId;
+
+    console.log('Deleting paper with ID:', paperId);
 
     // Check if paper exists and user has permission
     const paperResult = await query<any[]>(
@@ -319,7 +326,7 @@ export async function DELETE(
       message: 'Exam paper deleted successfully',
     });
   } catch (error) {
-    console.error('DELETE /api/exam-papers/[id] error:', error);
+    console.error('DELETE /api/exam-papers/[paperId] error:', error);
     return NextResponse.json(
       { error: 'Failed to delete exam paper', details: String(error) },
       { status: 500 }

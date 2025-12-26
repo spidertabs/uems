@@ -29,6 +29,7 @@ interface SelectedQuestion {
   question_id: number;
   question_number: number;
   marks: number;
+  section: string;
   option_order?: number[] | null;
   question: Question;
 }
@@ -49,6 +50,10 @@ export default function SelectQuestionsPage() {
   const [filterBloom, setFilterBloom] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Section selection state
+  const [selectedSection, setSelectedSection] = useState<Record<number, string>>({});
+  const sections = ['A', 'B', 'C', 'D', 'E'];
 
   const [studyUnits, setStudyUnits] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -100,7 +105,6 @@ export default function SelectQuestionsPage() {
       try {
         const parsed = JSON.parse(options);
         if (Array.isArray(parsed)) {
-          // Handle both string arrays and object arrays
           return parsed.map((opt) => (typeof opt === 'string' ? opt : opt.text));
         }
         return undefined;
@@ -117,11 +121,14 @@ export default function SelectQuestionsPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    if (paperId) {
+      fetchData();
+    }
   }, [paperId]);
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const [paperRes, questionsRes, typesRes] = await Promise.all([
         fetch(`/api/exam-papers/${paperId}`),
         fetch('/api/question-bank'),
@@ -150,21 +157,17 @@ export default function SelectQuestionsPage() {
             const parsedOptions = parseOptions(sq.question.options);
 
             if (sq.question.question_type === 'multiple_choice' && parsedOptions) {
-              // If we have a saved order, use it; otherwise generate new shuffle
               let shuffledOptions: string[];
               let optionOrder: number[];
 
               if (sq.option_order && Array.isArray(sq.option_order)) {
-                // Use saved order
                 shuffledOptions = applySavedOrder(parsedOptions, sq.option_order);
                 optionOrder = sq.option_order;
               } else {
-                // Check if should not shuffle
                 if (shouldNotShuffle(parsedOptions)) {
                   shuffledOptions = parsedOptions;
-                  optionOrder = parsedOptions.map((_, idx) => idx); // Keep original order
+                  optionOrder = parsedOptions.map((_, idx) => idx);
                 } else {
-                  // Generate new shuffle
                   const { shuffled, order } = shuffleArrayWithOrder(parsedOptions);
                   shuffledOptions = shuffled;
                   optionOrder = order;
@@ -207,13 +210,12 @@ export default function SelectQuestionsPage() {
           const parsedOptions = parseOptions(q.options);
 
           if (q.question_type === 'multiple_choice' && parsedOptions) {
-            // Check if should not shuffle
             if (shouldNotShuffle(parsedOptions)) {
               return {
                 ...q,
                 options: parsedOptions,
                 shuffledOptions: parsedOptions,
-                optionOrder: parsedOptions.map((_, idx) => idx), // Keep original order
+                optionOrder: parsedOptions.map((_, idx) => idx),
               };
             } else {
               const { shuffled, order } = shuffleArrayWithOrder(parsedOptions);
@@ -234,6 +236,13 @@ export default function SelectQuestionsPage() {
         });
 
         setQuestions(parsedQuestions);
+        
+        // Initialize section selection with default 'A' for all questions
+        const initialSections: Record<number, string> = {};
+        parsedQuestions.forEach((q: Question) => {
+          initialSections[q.id] = 'A';
+        });
+        setSelectedSection(initialSections);
       } else {
         const error = await questionsRes.json();
         console.error('Questions API error:', error);
@@ -264,7 +273,6 @@ export default function SelectQuestionsPage() {
       const response = await fetch(`/api/courses/${courseId}/study-units`);
       console.log('Study units API response status:', response.status);
 
-      // Get the raw response text first
       const responseText = await response.text();
       console.log('Raw response text:', responseText);
 
@@ -281,7 +289,6 @@ export default function SelectQuestionsPage() {
 
         console.log('Study units data:', data);
 
-        // Support both response formats
         const unitsArray = data.study_units || data.studyUnits || [];
 
         if (Array.isArray(unitsArray)) {
@@ -308,16 +315,13 @@ export default function SelectQuestionsPage() {
 
   // Filter available questions (exclude already selected ones)
   const availableQuestions = questions.filter((question) => {
-    // Remove questions that are already selected
     const isAlreadySelected = selectedQuestions.some((sq) => sq.question_id === question.id);
     if (isAlreadySelected) return false;
 
-    // Apply other filters
     const matchesSearch =
       question.question_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
       question.course_code.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // Only show questions from the paper's course
     const matchesCourse = paper && question.course_code === paper.course_code;
     const matchesStudyUnit =
       filterStudyUnit === 'all' || question.study_unit_title === filterStudyUnit;
@@ -338,13 +342,14 @@ export default function SelectQuestionsPage() {
 
   const handleSelectQuestion = async (question: Question) => {
     try {
-      // Prepare the data to send
+      const section = selectedSection[question.id] || 'A';
+      
       const requestData: any = {
         question_id: question.id,
         marks: question.marks,
+        section: section,
       };
 
-      // Include option_order if this is an MCQ with shuffled options
       if (question.question_type === 'multiple_choice' && question.optionOrder) {
         requestData.option_order = question.optionOrder;
       }
@@ -366,26 +371,21 @@ export default function SelectQuestionsPage() {
         if (selectedRes.ok) {
           const selectedData = await selectedRes.json();
 
-          // Parse options for selected questions and apply saved order
           const parsedSelected = (selectedData.questions || []).map((sq: SelectedQuestion) => {
             const parsedOptions = parseOptions(sq.question.options);
 
             if (sq.question.question_type === 'multiple_choice' && parsedOptions) {
-              // If we have a saved order, use it; otherwise generate new shuffle
               let shuffledOptions: string[];
               let optionOrder: number[];
 
               if (sq.option_order && Array.isArray(sq.option_order)) {
-                // Use saved order
                 shuffledOptions = applySavedOrder(parsedOptions, sq.option_order);
                 optionOrder = sq.option_order;
               } else {
-                // Check if should not shuffle
                 if (shouldNotShuffle(parsedOptions)) {
                   shuffledOptions = parsedOptions;
-                  optionOrder = parsedOptions.map((_, idx) => idx); // Keep original order
+                  optionOrder = parsedOptions.map((_, idx) => idx);
                 } else {
-                  // Generate new shuffle
                   const { shuffled, order } = shuffleArrayWithOrder(parsedOptions);
                   shuffledOptions = shuffled;
                   optionOrder = order;
@@ -437,31 +437,25 @@ export default function SelectQuestionsPage() {
       if (response.ok) {
         console.log('Question removed successfully');
 
-        // Refresh the selected questions list
         const selectedRes = await fetch(`/api/exam-papers/${paperId}/questions`);
         if (selectedRes.ok) {
           const selectedData = await selectedRes.json();
 
-          // Parse options for selected questions and apply saved order
           const parsedSelected = (selectedData.questions || []).map((sq: SelectedQuestion) => {
             const parsedOptions = parseOptions(sq.question.options);
 
             if (sq.question.question_type === 'multiple_choice' && parsedOptions) {
-              // If we have a saved order, use it; otherwise generate new shuffle
               let shuffledOptions: string[];
               let optionOrder: number[];
 
               if (sq.option_order && Array.isArray(sq.option_order)) {
-                // Use saved order
                 shuffledOptions = applySavedOrder(parsedOptions, sq.option_order);
                 optionOrder = sq.option_order;
               } else {
-                // Check if should not shuffle
                 if (shouldNotShuffle(parsedOptions)) {
                   shuffledOptions = parsedOptions;
-                  optionOrder = parsedOptions.map((_, idx) => idx); // Keep original order
+                  optionOrder = parsedOptions.map((_, idx) => idx);
                 } else {
-                  // Generate new shuffle
                   const { shuffled, order } = shuffleArrayWithOrder(parsedOptions);
                   shuffledOptions = shuffled;
                   optionOrder = order;
@@ -516,6 +510,16 @@ export default function SelectQuestionsPage() {
       </div>
     );
   };
+
+  // Group selected questions by section
+  const groupedBySection = selectedQuestions.reduce((acc, sq) => {
+    const section = sq.section || 'A';
+    if (!acc[section]) {
+      acc[section] = [];
+    }
+    acc[section].push(sq);
+    return acc;
+  }, {} as Record<string, SelectedQuestion[]>);
 
   const totalMarks = selectedQuestions.reduce((sum, sq) => sum + sq.marks, 0);
 
@@ -685,7 +689,7 @@ export default function SelectQuestionsPage() {
                   key={question.id}
                   className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
                 >
-                  <div className="mb-2 flex items-start justify-between">
+                  <div className="mb-3 flex items-start justify-between">
                     <div className="flex-1">
                       <div className="mb-2 flex flex-wrap gap-1">
                         <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -725,9 +729,32 @@ export default function SelectQuestionsPage() {
                         {question.question_type} • {question.marks} marks
                       </p>
                     </div>
+                  </div>
+                  
+                  {/* Section Selection and Add Button */}
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Section:
+                    </label>
+                    <select
+                      value={selectedSection[question.id] || 'A'}
+                      onChange={(e) =>
+                        setSelectedSection((prev) => ({
+                          ...prev,
+                          [question.id]: e.target.value,
+                        }))
+                      }
+                      className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    >
+                      {sections.map((section) => (
+                        <option key={section} value={section}>
+                          Section {section}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       onClick={() => handleSelectQuestion(question)}
-                      className="ml-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 flex-shrink-0"
+                      className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 flex-shrink-0"
                     >
                       Add →
                     </button>
@@ -738,7 +765,7 @@ export default function SelectQuestionsPage() {
           </div>
         </div>
 
-        {/* Selected Questions */}
+        {/* Selected Questions - Grouped by Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -749,7 +776,7 @@ export default function SelectQuestionsPage() {
             </span>
           </div>
 
-          <div className="max-h-[600px] space-y-3 overflow-y-auto">
+          <div className="max-h-[600px] space-y-4 overflow-y-auto">
             {selectedQuestions.length === 0 ? (
               <div className="rounded-lg border border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
                 <div className="text-4xl">📝</div>
@@ -757,60 +784,81 @@ export default function SelectQuestionsPage() {
                   No questions selected yet
                 </p>
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                  Select questions from the available list
+                  Select questions from the available list and assign them to sections
                 </p>
               </div>
             ) : (
-              selectedQuestions.map((sq, index) => (
-                <div
-                  key={sq.question_id}
-                  className="rounded-lg border border-green-200 bg-green-50 p-4 shadow-sm dark:border-green-800 dark:bg-green-900/20"
-                >
-                  <div className="mb-2 flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-600 text-xs font-bold text-white">
-                          {index + 1}
+              // Display questions grouped by section
+              Object.entries(groupedBySection)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([section, sectionQuestions]) => (
+                  <div key={section} className="space-y-3">
+                    {/* Section Header */}
+                    <div className="sticky top-0 z-10 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 shadow-md">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-white">
+                          SECTION {section}
+                        </h3>
+                        <span className="text-xs font-medium text-blue-100">
+                          {sectionQuestions.length} question{sectionQuestions.length !== 1 ? 's' : ''} • {' '}
+                          {sectionQuestions.reduce((sum, sq) => sum + sq.marks, 0)} marks
                         </span>
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                          {sq.question.course_code}
-                        </span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            difficultyColors[
-                              sq.question.difficulty_level as keyof typeof difficultyColors
-                            ]
-                          }`}
-                        >
-                          {sq.question.difficulty_level}
-                        </span>
-                        {sq.option_order && (
-                          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            🔀 Shuffled
-                          </span>
-                        )}
                       </div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                        {sq.question.question_text}
-                      </p>
-
-                      {/* Show MCQ options if available */}
-                      {sq.question.question_type === 'multiple_choice' &&
-                        renderMCQOptions(sq.question.shuffledOptions)}
-
-                      <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                        {sq.question.question_type} • {sq.marks} marks
-                      </p>
                     </div>
-                    <button
-                      onClick={() => handleRemoveQuestion(sq)}
-                      className="ml-2 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20 flex-shrink-0"
-                    >
-                      Remove
-                    </button>
+
+                    {/* Section Questions */}
+                    {sectionQuestions.map((sq, index) => (
+                      <div
+                        key={sq.question_id}
+                        className="rounded-lg border border-green-200 bg-green-50 p-4 shadow-sm dark:border-green-800 dark:bg-green-900/20"
+                      >
+                        <div className="mb-2 flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="mb-1 flex items-center gap-2 flex-wrap">
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-600 text-xs font-bold text-white">
+                                {index + 1}
+                              </span>
+                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                {sq.question.course_code}
+                              </span>
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                  difficultyColors[
+                                    sq.question.difficulty_level as keyof typeof difficultyColors
+                                  ]
+                                }`}
+                              >
+                                {sq.question.difficulty_level}
+                              </span>
+                              {sq.option_order && (
+                                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                  🔀 Shuffled
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                              {sq.question.question_text}
+                            </p>
+
+                            {/* Show MCQ options if available */}
+                            {sq.question.question_type === 'multiple_choice' &&
+                              renderMCQOptions(sq.question.shuffledOptions)}
+
+                            <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                              {sq.question.question_type} • {sq.marks} marks
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveQuestion(sq)}
+                            className="ml-2 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20 flex-shrink-0"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))
+                ))
             )}
           </div>
         </div>

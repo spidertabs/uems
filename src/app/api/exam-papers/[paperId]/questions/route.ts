@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/app/api/exam-papers/[id]/questions/route.ts
+// src/app/api/exam-papers/[paperId]/questions/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
@@ -18,11 +18,11 @@ async function query<T>(sql: string, params: any[] = []): Promise<T> {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: { paperId: string } | Promise<{ paperId: string }> }
 ) {
   try {
     const resolvedParams = params instanceof Promise ? await params : params;
-    const paperId = resolvedParams.id;
+    const paperId = resolvedParams.paperId;
 
     const user = await verifyAuth(req);
     if (!user) {
@@ -52,7 +52,7 @@ export async function GET(
       LEFT JOIN study_units su ON q.study_unit_id = su.id
       LEFT JOIN users u ON q.created_by = u.id
       WHERE epq.exam_paper_id = ?
-      ORDER BY epq.sequence_order ASC`,
+      ORDER BY epq.section ASC, epq.sequence_order ASC`,
       [paperId]
     );
 
@@ -64,7 +64,8 @@ export async function GET(
       question_number: pq.question_number || (index + 1),
       sequence_order: pq.sequence_order,
       marks: pq.marks,
-      section: pq.section,
+      section: pq.section || 'A',
+      option_order: pq.option_order ? (typeof pq.option_order === 'string' ? JSON.parse(pq.option_order) : pq.option_order) : null,
       question: {
         id: pq.question_id,
         question_text: pq.question_text,
@@ -88,7 +89,7 @@ export async function GET(
       count: questions.length,
     });
   } catch (error) {
-    console.error('GET /api/exam-papers/[id]/questions error:', error);
+    console.error('GET /api/exam-papers/[paperId]/questions error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch paper questions', details: String(error) },
       { status: 500 }
@@ -98,11 +99,11 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: { paperId: string } | Promise<{ paperId: string }> }
 ) {
   try {
     const resolvedParams = params instanceof Promise ? await params : params;
-    const paperId = resolvedParams.id;
+    const paperId = resolvedParams.paperId;
 
     const user = await verifyAuth(req);
     if (!user) {
@@ -110,9 +111,9 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { question_id, marks } = body;
+    const { question_id, marks, section, option_order } = body;
 
-    console.log('Adding question to paper:', { paperId, question_id, marks });
+    console.log('Adding question to paper:', { paperId, question_id, marks, section, option_order });
 
     // Validation
     if (!question_id) {
@@ -124,7 +125,7 @@ export async function POST(
 
     // Check if question exists
     const questions = await query<any[]>(
-      'SELECT id, marks FROM questions WHERE id = ? AND is_active = 1',
+      'SELECT id, marks, question_type FROM questions WHERE id = ? AND is_active = 1',
       [question_id]
     );
 
@@ -152,14 +153,21 @@ export async function POST(
       );
     }
 
-    // Get the next sequence_order
+    // Get the next sequence_order for the specified section
+    const sectionValue = section || 'A';
     const maxSeq = await query<any[]>(
-      'SELECT COALESCE(MAX(sequence_order), 0) + 1 as next_seq FROM exam_paper_questions WHERE exam_paper_id = ?',
-      [paperId]
+      'SELECT COALESCE(MAX(sequence_order), 0) + 1 as next_seq FROM exam_paper_questions WHERE exam_paper_id = ? AND section = ?',
+      [paperId, sectionValue]
     );
     const nextSequenceOrder = maxSeq[0]?.next_seq || 1;
 
-    console.log('Next sequence order:', nextSequenceOrder);
+    console.log('Next sequence order for section', sectionValue, ':', nextSequenceOrder);
+
+    // Prepare option_order for storage (convert to JSON string if it's an array)
+    let optionOrderValue = null;
+    if (option_order && Array.isArray(option_order)) {
+      optionOrderValue = JSON.stringify(option_order);
+    }
 
     // Add question to paper
     const result = await query<any>(
@@ -170,16 +178,18 @@ export async function POST(
         sequence_order,
         marks,
         section,
+        option_order,
         is_required
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         paperId, 
         question_id, 
-        String(nextSequenceOrder), // question_number
-        nextSequenceOrder,          // sequence_order
-        marks || questions[0].marks,
-        'A',                        // default section
-        1                           // is_required
+        String(nextSequenceOrder),    // question_number
+        nextSequenceOrder,             // sequence_order
+        marks || questions[0].marks,   // marks
+        sectionValue,                  // section (A, B, C, etc.)
+        optionOrderValue,              // option_order (JSON string or null)
+        1                              // is_required
       ]
     );
 
@@ -194,12 +204,77 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: 'Question added to paper successfully',
-      sequence_order: nextSequenceOrder
+      sequence_order: nextSequenceOrder,
+      section: sectionValue
     });
   } catch (error) {
-    console.error('POST /api/exam-papers/[id]/questions error:', error);
+    console.error('POST /api/exam-papers/[paperId]/questions error:', error);
     return NextResponse.json(
       { error: 'Failed to add question to paper', details: String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { paperId: string } | Promise<{ paperId: string }> }
+) {
+  try {
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const paperId = resolvedParams.paperId;
+
+    const user = await verifyAuth(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get question_id from URL search params
+    const { searchParams } = new URL(req.url);
+    const questionId = searchParams.get('question_id');
+
+    if (!questionId) {
+      return NextResponse.json(
+        { error: 'question_id is required' },
+        { status: 400 }
+      );
+    }
+
+    console.log('Removing question from paper:', { paperId, questionId });
+
+    // Check if the question is in this paper
+    const existing = await query<any[]>(
+      'SELECT id, question_id FROM exam_paper_questions WHERE exam_paper_id = ? AND question_id = ?',
+      [paperId, questionId]
+    );
+
+    if (existing.length === 0) {
+      return NextResponse.json(
+        { error: 'Question not found in this paper' },
+        { status: 404 }
+      );
+    }
+
+    // Delete the question from the paper
+    await query(
+      'DELETE FROM exam_paper_questions WHERE exam_paper_id = ? AND question_id = ?',
+      [paperId, questionId]
+    );
+
+    // Decrement question usage count
+    await query(
+      'UPDATE questions SET usage_count = GREATEST(usage_count - 1, 0) WHERE id = ?',
+      [questionId]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: 'Question removed from paper successfully'
+    });
+  } catch (error) {
+    console.error('DELETE /api/exam-papers/[paperId]/questions error:', error);
+    return NextResponse.json(
+      { error: 'Failed to remove question from paper', details: String(error) },
       { status: 500 }
     );
   }
