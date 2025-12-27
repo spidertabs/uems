@@ -4,7 +4,7 @@
 // src/app/exam-papers/[paperId]/select-questions/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -51,7 +51,7 @@ export default function SelectQuestionsPage() {
   const [filterType, setFilterType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Section selection state
+  // Section selection state - NOW WITH PROPER INITIALIZATION
   const [selectedSection, setSelectedSection] = useState<Record<number, string>>({});
   const sections = ['A', 'B', 'C', 'D', 'E'];
 
@@ -236,13 +236,6 @@ export default function SelectQuestionsPage() {
         });
 
         setQuestions(parsedQuestions);
-        
-        // Initialize section selection with default 'A' for all questions
-        const initialSections: Record<number, string> = {};
-        parsedQuestions.forEach((q: Question) => {
-          initialSections[q.id] = 'A';
-        });
-        setSelectedSection(initialSections);
       } else {
         const error = await questionsRes.json();
         console.error('Questions API error:', error);
@@ -314,35 +307,59 @@ export default function SelectQuestionsPage() {
   };
 
   // Filter available questions (exclude already selected ones)
-  const availableQuestions = questions.filter((question) => {
-    const isAlreadySelected = selectedQuestions.some((sq) => sq.question_id === question.id);
-    if (isAlreadySelected) return false;
+  // USING useMemo to ensure this updates when dependencies change
+  const availableQuestions = useMemo(() => {
+    return questions.filter((question) => {
+      const isAlreadySelected = selectedQuestions.some((sq) => sq.question_id === question.id);
+      if (isAlreadySelected) return false;
 
-    const matchesSearch =
-      question.question_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      question.course_code.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch =
+        question.question_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        question.course_code.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCourse = paper && question.course_code === paper.course_code;
-    const matchesStudyUnit =
-      filterStudyUnit === 'all' || question.study_unit_title === filterStudyUnit;
-    const matchesDifficulty =
-      filterDifficulty === 'all' || question.difficulty_level === filterDifficulty;
-    const matchesBloom = filterBloom === 'all' || question.bloom_level === filterBloom;
-    const matchesType = filterType === 'all' || question.question_type === filterType;
+      const matchesCourse = paper && question.course_code === paper.course_code;
+      const matchesStudyUnit =
+        filterStudyUnit === 'all' || question.study_unit_title === filterStudyUnit;
+      const matchesDifficulty =
+        filterDifficulty === 'all' || question.difficulty_level === filterDifficulty;
+      const matchesBloom = filterBloom === 'all' || question.bloom_level === filterBloom;
+      const matchesType = filterType === 'all' || question.question_type === filterType;
 
-    return (
-      matchesSearch &&
-      matchesCourse &&
-      matchesStudyUnit &&
-      matchesDifficulty &&
-      matchesBloom &&
-      matchesType
-    );
-  });
+      return (
+        matchesSearch &&
+        matchesCourse &&
+        matchesStudyUnit &&
+        matchesDifficulty &&
+        matchesBloom &&
+        matchesType
+      );
+    });
+  }, [questions, selectedQuestions, searchQuery, paper, filterStudyUnit, filterDifficulty, filterBloom, filterType]);
+
+  // Initialize section selection for available questions
+  // This ensures every question has a section value
+  useEffect(() => {
+    const initialSections: Record<number, string> = { ...selectedSection };
+    let hasChanges = false;
+
+    availableQuestions.forEach((q: Question) => {
+      if (!initialSections[q.id]) {
+        initialSections[q.id] = 'A';
+        hasChanges = true;
+      }
+    });
+
+    if (hasChanges) {
+      setSelectedSection(initialSections);
+    }
+  }, [availableQuestions]);
 
   const handleSelectQuestion = async (question: Question) => {
     try {
+      // Get the selected section, with fallback to 'A'
       const section = selectedSection[question.id] || 'A';
+      
+      console.log(`Adding question ${question.id} to section ${section}`);
       
       const requestData: any = {
         question_id: question.id,
@@ -354,7 +371,7 @@ export default function SelectQuestionsPage() {
         requestData.option_order = question.optionOrder;
       }
 
-      console.log('Adding question with data:', requestData);
+      console.log('Request data:', requestData);
 
       const response = await fetch(`/api/exam-papers/${paperId}/questions`, {
         method: 'POST',
@@ -362,9 +379,27 @@ export default function SelectQuestionsPage() {
         body: JSON.stringify(requestData),
       });
 
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      // Try to parse the response
+      let responseData;
+      const contentType = response.headers.get('content-type');
+      console.log('Content-Type:', contentType);
+
+      if (contentType && contentType.includes('application/json')) {
+        responseData = await response.json();
+      } else {
+        // If not JSON, get as text
+        const text = await response.text();
+        console.log('Response text:', text);
+        responseData = { error: text || 'Non-JSON response received' };
+      }
+
+      console.log('API Response Data:', responseData);
+
       if (response.ok) {
-        const data = await response.json();
-        console.log('Question added successfully:', data);
+        console.log('Question added successfully:', responseData);
 
         // Refresh the selected questions list
         const selectedRes = await fetch(`/api/exam-papers/${paperId}/questions`);
@@ -415,13 +450,24 @@ export default function SelectQuestionsPage() {
           setSelectedQuestions(parsedSelected);
         }
       } else {
-        const error = await response.json();
-        console.error('Add question error:', error);
-        alert(error.error || 'Failed to add question');
+        // Enhanced error reporting
+        console.error('Add question failed with status:', response.status);
+        console.error('Add question error data:', responseData);
+        
+        const errorMessage = responseData?.error 
+          || responseData?.message 
+          || `Failed to add question (Status: ${response.status})`;
+        
+        alert(errorMessage);
       }
     } catch (error) {
-      console.error('Failed to select question:', error);
-      alert('Failed to add question');
+      console.error('Failed to select question - Exception:', error);
+      console.error('Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      alert('Failed to add question: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -429,8 +475,9 @@ export default function SelectQuestionsPage() {
     if (!confirm('Remove this question from the paper?')) return;
 
     try {
+      // Use query parameter for DELETE as expected by the API
       const response = await fetch(
-        `/api/exam-papers/${paperId}/questions/${selectedQuestion.question_id}`,
+        `/api/exam-papers/${paperId}/questions?question_id=${selectedQuestion.question_id}`,
         { method: 'DELETE' }
       );
 
@@ -731,20 +778,22 @@ export default function SelectQuestionsPage() {
                     </div>
                   </div>
                   
-                  {/* Section Selection and Add Button */}
+                  {/* Section Selection and Add Button - IMPROVED */}
                   <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Section:
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      Add to:
                     </label>
                     <select
                       value={selectedSection[question.id] || 'A'}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const newSection = e.target.value;
+                        console.log(`Section changed for question ${question.id}: ${newSection}`);
                         setSelectedSection((prev) => ({
                           ...prev,
-                          [question.id]: e.target.value,
-                        }))
-                      }
-                      className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                          [question.id]: newSection,
+                        }));
+                      }}
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     >
                       {sections.map((section) => (
                         <option key={section} value={section}>
@@ -754,7 +803,7 @@ export default function SelectQuestionsPage() {
                     </select>
                     <button
                       onClick={() => handleSelectQuestion(question)}
-                      className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 flex-shrink-0"
+                      className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 active:bg-blue-800 flex-shrink-0 shadow-sm"
                     >
                       Add →
                     </button>

@@ -27,7 +27,8 @@ WORKFLOW:
 5. Exam Master prints → status: 'printing' → 'printed'
 6. Paper published → status: 'published'
 
-NOTE: Dont generate files that I have ...I already have my data in my database so i wanna build the files
+NOTE: Dont generate files that I have ...I already have my data in my database 
+      so i wanna build the files ✅️
 
 📦 uems/
 │
@@ -166,7 +167,7 @@ NOTE: Dont generate files that I have ...I already have my data in my database s
 │   │   └── layout.tsx         
 │   │
 │   ├── 📂 components/                               # Reusable components
-│   │   ├── 📂 ui
+│   │   └── 📂 ui
 │   │
 │   ├── 📂 data/
 │   │   └── headerNavLinks.ts

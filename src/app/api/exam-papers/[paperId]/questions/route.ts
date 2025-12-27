@@ -113,10 +113,17 @@ export async function POST(
     const body = await req.json();
     const { question_id, marks, section, option_order } = body;
 
-    console.log('Adding question to paper:', { paperId, question_id, marks, section, option_order });
+    console.log('📝 POST Request - Adding question to paper:', { 
+      paperId, 
+      question_id, 
+      marks, 
+      section: section || 'A (default)', 
+      option_order: option_order ? 'Yes' : 'No' 
+    });
 
     // Validation
     if (!question_id) {
+      console.error('❌ Validation failed: question_id is missing');
       return NextResponse.json(
         { error: 'question_id is required' },
         { status: 400 }
@@ -129,9 +136,10 @@ export async function POST(
       [question_id]
     );
 
-    console.log('Question lookup result:', questions);
+    console.log('🔍 Question lookup result:', questions.length > 0 ? 'Found' : 'Not found');
 
     if (questions.length === 0) {
+      console.error('❌ Question not found or inactive:', question_id);
       return NextResponse.json(
         { error: 'Question not found or inactive' },
         { status: 404 }
@@ -144,9 +152,10 @@ export async function POST(
       [paperId, question_id]
     );
 
-    console.log('Existing check:', existing);
+    console.log('🔍 Duplicate check:', existing.length > 0 ? 'Already exists' : 'New question');
 
     if (existing.length > 0) {
+      console.error('❌ Question already added to paper');
       return NextResponse.json(
         { error: 'Question already added to this paper' },
         { status: 409 }
@@ -155,21 +164,25 @@ export async function POST(
 
     // Get the next sequence_order for the specified section
     const sectionValue = section || 'A';
+    console.log('📌 Section value:', sectionValue);
+
     const maxSeq = await query<any[]>(
       'SELECT COALESCE(MAX(sequence_order), 0) + 1 as next_seq FROM exam_paper_questions WHERE exam_paper_id = ? AND section = ?',
       [paperId, sectionValue]
     );
     const nextSequenceOrder = maxSeq[0]?.next_seq || 1;
 
-    console.log('Next sequence order for section', sectionValue, ':', nextSequenceOrder);
+    console.log('🔢 Next sequence order for section', sectionValue, ':', nextSequenceOrder);
 
     // Prepare option_order for storage (convert to JSON string if it's an array)
     let optionOrderValue = null;
     if (option_order && Array.isArray(option_order)) {
       optionOrderValue = JSON.stringify(option_order);
+      console.log('🔀 Option order saved:', optionOrderValue);
     }
 
     // Add question to paper
+    console.log('💾 Inserting into database...');
     const result = await query<any>(
       `INSERT INTO exam_paper_questions (
         exam_paper_id,
@@ -193,7 +206,7 @@ export async function POST(
       ]
     );
 
-    console.log('Insert result:', result);
+    console.log('✅ Insert successful. Result:', result);
 
     // Update question usage count
     await query(
@@ -201,16 +214,32 @@ export async function POST(
       [question_id]
     );
 
-    return NextResponse.json({
+    console.log('✅ Question usage count updated');
+
+    const response = {
       success: true,
       message: 'Question added to paper successfully',
-      sequence_order: nextSequenceOrder,
-      section: sectionValue
-    });
+      data: {
+        question_id,
+        section: sectionValue,
+        sequence_order: nextSequenceOrder,
+        marks: marks || questions[0].marks
+      }
+    };
+
+    console.log('✅ Sending success response:', response);
+
+    return NextResponse.json(response);
   } catch (error) {
-    console.error('POST /api/exam-papers/[paperId]/questions error:', error);
+    console.error('❌ POST /api/exam-papers/[paperId]/questions error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
     return NextResponse.json(
-      { error: 'Failed to add question to paper', details: String(error) },
+      { 
+        error: 'Failed to add question to paper', 
+        message: error instanceof Error ? error.message : String(error),
+        details: String(error) 
+      },
       { status: 500 }
     );
   }
@@ -233,22 +262,26 @@ export async function DELETE(
     const { searchParams } = new URL(req.url);
     const questionId = searchParams.get('question_id');
 
+    console.log('🗑️  DELETE Request - Removing question:', { paperId, questionId });
+
     if (!questionId) {
+      console.error('❌ Validation failed: question_id is missing');
       return NextResponse.json(
         { error: 'question_id is required' },
         { status: 400 }
       );
     }
 
-    console.log('Removing question from paper:', { paperId, questionId });
-
     // Check if the question is in this paper
     const existing = await query<any[]>(
-      'SELECT id, question_id FROM exam_paper_questions WHERE exam_paper_id = ? AND question_id = ?',
+      'SELECT id, question_id, section FROM exam_paper_questions WHERE exam_paper_id = ? AND question_id = ?',
       [paperId, questionId]
     );
 
+    console.log('🔍 Question lookup:', existing.length > 0 ? `Found in section ${existing[0].section}` : 'Not found');
+
     if (existing.length === 0) {
+      console.error('❌ Question not found in paper');
       return NextResponse.json(
         { error: 'Question not found in this paper' },
         { status: 404 }
@@ -256,6 +289,7 @@ export async function DELETE(
     }
 
     // Delete the question from the paper
+    console.log('💾 Deleting from database...');
     await query(
       'DELETE FROM exam_paper_questions WHERE exam_paper_id = ? AND question_id = ?',
       [paperId, questionId]
@@ -267,12 +301,14 @@ export async function DELETE(
       [questionId]
     );
 
+    console.log('✅ Question removed successfully');
+
     return NextResponse.json({
       success: true,
       message: 'Question removed from paper successfully'
     });
   } catch (error) {
-    console.error('DELETE /api/exam-papers/[paperId]/questions error:', error);
+    console.error('❌ DELETE /api/exam-papers/[paperId]/questions error:', error);
     return NextResponse.json(
       { error: 'Failed to remove question from paper', details: String(error) },
       { status: 500 }
