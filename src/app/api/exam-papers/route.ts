@@ -1,8 +1,16 @@
-// src/app/api/exam-papers/route.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// src/app/api/exam-papers/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { query, transaction } from '@/lib/db';
+import { query, transaction, QueryResult } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
+import type { Course, ExamPaper } from '@/types';
+
+interface ExamPaperRow extends ExamPaper {
+  course_code: string;
+  course_title: string;
+  created_by_name: string;
+  programmes?: string;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,7 +49,7 @@ export async function GET(request: NextRequest) {
       WHERE 1=1
     `;
 
-    const params: any[] = [];
+    const params: (string | number)[] = [];
 
     // Filter by course if specified
     if (course_id) {
@@ -51,7 +59,6 @@ export async function GET(request: NextRequest) {
 
     // Filter based on role
     if (role === 'lecturer') {
-      // Lecturers see their own papers or papers from courses they have permission for
       sql += `
         AND (ep.created_by = ? OR EXISTS (
           SELECT 1 FROM lecturer_permissions lp 
@@ -62,19 +69,16 @@ export async function GET(request: NextRequest) {
       `;
       params.push(user_id, user_id);
     } else if (role === 'hod') {
-      // HODs see all papers in their department
       sql += ` AND c.department_id = ?`;
-      params.push(department_id);
+      params.push(department_id!);
     } else if (role === 'dean') {
-      // Deans see all papers in their college
       sql += ` AND c.college_id = ?`;
-      params.push(college_id);
+      params.push(college_id!);
     }
-    // Admin and exam_master see all papers
 
     sql += ` GROUP BY ep.id ORDER BY ep.created_at DESC`;
 
-    const papers = await query<any[]>(sql, params);
+    const papers = await query<ExamPaperRow[]>(sql, params);
 
     return NextResponse.json({
       success: true,
@@ -82,7 +86,7 @@ export async function GET(request: NextRequest) {
       count: papers.length,
     });
   } catch (error) {
-    console.error('GET /api/exam-papers error:', error);
+    console.error('❌ GET /api/exam-papers error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch exam papers', details: String(error) },
       { status: 500 }
@@ -106,7 +110,7 @@ export async function POST(request: NextRequest) {
       exam_date,
       duration,
       instructions,
-      programme_ids, // NEW: Array of programme IDs
+      programme_ids,
     } = body;
 
     // Validate required fields
@@ -126,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate paper code
-    const courseResult = await query<any[]>(
+    const courseResult = await query<Course[]>(
       'SELECT code FROM courses WHERE id = ?',
       [course_id]
     );
@@ -139,7 +143,7 @@ export async function POST(request: NextRequest) {
     const paper_code = `${courseCode}-${exam_type}-${academic_year}-S${semester}`;
 
     // Get HOD for the course
-    const hodResult = await query<any[]>(
+    const hodResult = await query<{ id: number }[]>(
       `SELECT u.id 
        FROM users u 
        JOIN departments d ON u.department_id = d.id 
@@ -153,7 +157,6 @@ export async function POST(request: NextRequest) {
 
     // Use transaction to create paper and assign programmes atomically
     const paper_id = await transaction(async (connection) => {
-      // Insert exam paper
       const insertSql = `
         INSERT INTO exam_papers (
           paper_code, course_id, created_by, exam_type,
@@ -162,7 +165,7 @@ export async function POST(request: NextRequest) {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)
       `;
 
-      const result = await connection.execute(insertSql, [
+      const [result] = await connection.execute(insertSql, [
         paper_code,
         course_id,
         session.id,
@@ -175,17 +178,12 @@ export async function POST(request: NextRequest) {
         hod_id,
       ]);
 
-      const newPaperId = (result as any)[0].insertId;
+      const newPaperId = (result as QueryResult).insertId;
 
       // Insert programme associations
       if (programme_ids.length > 0) {
-        const programmeValues = programme_ids.map((progId: number) => [
-          newPaperId,
-          progId,
-        ]);
-
         const placeholders = programme_ids.map(() => '(?, ?)').join(', ');
-        const flatValues = programmeValues.flat();
+        const flatValues = programme_ids.flatMap((progId: number) => [newPaperId, progId]);
 
         await connection.execute(
           `INSERT INTO exam_paper_programmes (exam_paper_id, programme_id) VALUES ${placeholders}`,
@@ -210,7 +208,7 @@ export async function POST(request: NextRequest) {
       message: 'Exam paper created successfully',
     });
   } catch (error) {
-    console.error('POST /api/exam-papers error:', error);
+    console.error('❌ POST /api/exam-papers error:', error);
     return NextResponse.json(
       { 
         error: 'Failed to create exam paper', 

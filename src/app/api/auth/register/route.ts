@@ -22,6 +22,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+
     // Create user
     const result = await registerUser({
       email,
@@ -57,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('❌ Registration error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

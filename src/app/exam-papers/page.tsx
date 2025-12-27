@@ -4,23 +4,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import type { ExamPaper } from '@/types';
 
-interface ExamPaper {
-  id: number;
-  paper_code: string;
+interface ExamPaperWithDetails extends ExamPaper {
   course_code: string;
   course_title: string;
-  exam_type: string;
-  academic_year: number;
-  semester: number;
-  status: string;
-  total_marks: number;
-  duration: number;
   created_by_name: string;
-  created_at: string;
-  submitted_at: string | null;
-  exam_date: string | null;
+  programmes?: string;
 }
 
 interface User {
@@ -31,8 +21,7 @@ interface User {
 }
 
 export default function ExamPapersPage() {
-  const router = useRouter();
-  const [papers, setPapers] = useState<ExamPaper[]>([]);
+  const [papers, setPapers] = useState<ExamPaperWithDetails[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -130,7 +119,7 @@ export default function ExamPapersPage() {
     FINAL: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   };
 
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | Date | null) => {
     if (!dateString) return 'Not set';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -375,16 +364,14 @@ export default function ExamPapersPage() {
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        examTypeColors[paper.exam_type as keyof typeof examTypeColors] ||
-                        'bg-gray-100 text-gray-800'
+                        examTypeColors[paper.exam_type] || 'bg-gray-100 text-gray-800'
                       }`}
                     >
                       {paper.exam_type}
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        statusColors[paper.status as keyof typeof statusColors] ||
-                        'bg-gray-100 text-gray-800'
+                        statusColors[paper.status] || 'bg-gray-100 text-gray-800'
                       }`}
                     >
                       {paper.status.replace(/_/g, ' ').toUpperCase()}

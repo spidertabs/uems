@@ -1,16 +1,16 @@
 // src/app/api/auth/me/route.ts
-import { NextResponse } from 'next/server'
-import { getUserFromSession } from '@/lib/auth'
+import { NextResponse } from 'next/server';
+import { getUserFromSession } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const user = await getUserFromSession()
+    const user = await getUserFromSession();
 
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Not authenticated' },
         { status: 401 }
-      )
+      );
     }
 
     return NextResponse.json({
@@ -25,12 +25,12 @@ export async function GET() {
         department_id: user.department_id,
         college_id: user.college_id,
       },
-    })
+    });
   } catch (error) {
-    console.error('Get user error:', error)
+    console.error('❌ Get user error:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to get user' },
       { status: 500 }
-    )
+    );
   }
 }

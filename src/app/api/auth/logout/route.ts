@@ -26,11 +26,15 @@ export async function POST() {
     });
   } catch (error) {
     console.error('❌ Logout error:', error);
-    
+
     // Even if there's an error, clear the cookie
-    const cookieStore = await cookies();
-    cookieStore.delete('session');
-    
+    try {
+      const cookieStore = await cookies();
+      cookieStore.delete('session');
+    } catch {
+      // Ignore cookie deletion errors
+    }
+
     return NextResponse.json(
       { success: true, message: 'Logged out' },
       { status: 200 }

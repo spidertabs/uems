@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/lib/auth.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import bcrypt from 'bcryptjs';
@@ -5,6 +6,7 @@ import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
 import { query } from './db';
+import type { User, Session } from '@/types';
 
 export interface UserPayload {
   id: number;
@@ -43,12 +45,12 @@ export async function createSession(userId: number): Promise<string> {
 // Get user from session
 export async function getUserFromSession(): Promise<UserPayload | null> {
   try {
-    const cookieStore = await cookies(); // FIXED (not async)
+    const cookieStore = await cookies();
     const sessionId = cookieStore.get('session')?.value;
 
     if (!sessionId) return null;
 
-    const rows = await query<any[]>(
+    const rows = await query<User[]>(
       `SELECT u.id, u.email, u.first_name, u.last_name, u.role, 
               u.department_id, u.college_id
        FROM sessions s
@@ -99,7 +101,7 @@ export async function loginUser(
   try {
     console.log('🔍 Login attempt for email:', email);
 
-    const rows = await query<any[]>(
+    const rows = await query<User[]>(
       `SELECT id, email, password_hash, first_name, last_name, role, 
               department_id, college_id, is_active 
        FROM users 
@@ -157,7 +159,7 @@ export async function registerUser(data: {
   phone?: string;
 }): Promise<{ success: boolean; user?: UserPayload; sessionId?: string; error?: string }> {
   try {
-    const existing = await query<any[]>('SELECT id FROM users WHERE email = ? LIMIT 1', [
+    const existing = await query<User[]>('SELECT id FROM users WHERE email = ? LIMIT 1', [
       data.email,
     ]);
 
@@ -216,7 +218,7 @@ export async function verifyAuth(request: NextRequest): Promise<UserPayload | nu
       return null;
     }
 
-    const rows = await query<any[]>(
+    const rows = await query<User[]>(
       `SELECT u.id, u.email, u.first_name, u.last_name, u.role, 
               u.department_id, u.college_id
        FROM sessions s
