@@ -26,10 +26,15 @@ interface Question {
 }
 
 interface SelectedQuestion {
+  id: number;
   question_id: number;
-  question_number: number;
+  question_number: string;
+  display_number?: string;
   marks: number;
   section: string;
+  parent_question_id?: number | null;
+  indentation_level?: number;
+  sequence_order: number;
   option_order?: number[] | null;
   question: Question;
 }
@@ -51,45 +56,60 @@ export default function SelectQuestionsPage() {
   const [filterType, setFilterType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Section selection state - NOW WITH PROPER INITIALIZATION
+  // Section selection state
   const [selectedSection, setSelectedSection] = useState<Record<number, string>>({});
   const sections = ['A', 'B', 'C', 'D', 'E'];
 
+  // Sub-question state
+  const [showSubQuestionPrompt, setShowSubQuestionPrompt] = useState(false);
+  const [lastAddedQuestion, setLastAddedQuestion] = useState<SelectedQuestion | null>(null);
+  const [addingSubQuestionFor, setAddingSubQuestionFor] = useState<number | null>(null);
+  const [subQuestionLevel, setSubQuestionLevel] = useState<number>(1);
+
   const [studyUnits, setStudyUnits] = useState<any[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
   const [loadingStudyUnits, setLoadingStudyUnits] = useState(false);
   const [questionTypes, setQuestionTypes] = useState<string[]>([
-    'Multiple Choice',
-    'Short Answer',
-    'Essay',
-    'Problem Solving',
-    'Practical',
+    'multiple_choice',
+    'short_answer',
+    'essay',
+    'practical',
+    'case_study',
   ]);
 
-  // Helper function to check if options should not be shuffled
-  const shouldNotShuffle = (options: string[]): boolean => {
-    const combinedText = options.join(' ').toLowerCase();
-    return combinedText.includes('neither') || combinedText.includes('both');
+  // Helper to check if question type can have sub-questions
+  const canHaveSubQuestions = (questionType: string): boolean => {
+    const normalizedType = questionType.toLowerCase().replace(/\s+/g, '_');
+    return normalizedType !== 'multiple_choice' && 
+           normalizedType !== 'true_false';
   };
 
-  // Helper function to shuffle array and return both shuffled array and order indices
+  // Helper to normalize question type for comparison
+  const normalizeQuestionType = (type: string): string => {
+    return type.toLowerCase().replace(/\s+/g, '_');
+  };
+
+  // Helper functions for MCQ options
+  const shouldNotShuffle = (options: string[]): boolean => {
+    const combinedText = options.join(' ').toLowerCase();
+    return combinedText.includes('neither') || 
+           combinedText.includes('both') ||
+           combinedText.includes('all of the above') ||
+           combinedText.includes('none of the above');
+  };
+
   const shuffleArrayWithOrder = <T,>(array: T[]): { shuffled: T[]; order: number[] } => {
     const indices = array.map((_, idx) => idx);
     const shuffledIndices = [...indices];
 
-    // Fisher-Yates shuffle on indices
     for (let i = shuffledIndices.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
     }
 
-    // Create shuffled array based on shuffled indices
     const shuffled = shuffledIndices.map((idx) => array[idx]);
-
     return { shuffled, order: shuffledIndices };
   };
 
-  // Helper function to apply saved order to options
   const applySavedOrder = <T,>(array: T[], order: number[]): T[] => {
     if (!order || order.length !== array.length) {
       return array;
@@ -97,7 +117,6 @@ export default function SelectQuestionsPage() {
     return order.map((idx) => array[idx]);
   };
 
-  // Helper function to parse options
   const parseOptions = (options: any): string[] | undefined => {
     if (!options) return undefined;
 
@@ -137,79 +156,21 @@ export default function SelectQuestionsPage() {
 
       if (paperRes.ok) {
         const paperData = await paperRes.json();
-        console.log('Paper data:', paperData);
         setPaper(paperData.paper);
 
-        // Fetch study units for this paper's course
         if (paperData.paper && paperData.paper.course_id) {
-          console.log('Loading study units for course:', paperData.paper.course_id);
           fetchStudyUnits(paperData.paper.course_id);
         }
 
-        // Fetch already selected questions for this paper
-        const selectedRes = await fetch(`/api/exam-papers/${paperId}/questions`);
-        if (selectedRes.ok) {
-          const selectedData = await selectedRes.json();
-          console.log('Selected questions:', selectedData);
-
-          // Parse options for selected questions and apply saved order
-          const parsedSelected = (selectedData.questions || []).map((sq: SelectedQuestion) => {
-            const parsedOptions = parseOptions(sq.question.options);
-
-            if (sq.question.question_type === 'multiple_choice' && parsedOptions) {
-              let shuffledOptions: string[];
-              let optionOrder: number[];
-
-              if (sq.option_order && Array.isArray(sq.option_order)) {
-                shuffledOptions = applySavedOrder(parsedOptions, sq.option_order);
-                optionOrder = sq.option_order;
-              } else {
-                if (shouldNotShuffle(parsedOptions)) {
-                  shuffledOptions = parsedOptions;
-                  optionOrder = parsedOptions.map((_, idx) => idx);
-                } else {
-                  const { shuffled, order } = shuffleArrayWithOrder(parsedOptions);
-                  shuffledOptions = shuffled;
-                  optionOrder = order;
-                }
-              }
-
-              return {
-                ...sq,
-                question: {
-                  ...sq.question,
-                  options: parsedOptions,
-                  shuffledOptions,
-                  optionOrder,
-                },
-              };
-            }
-
-            return {
-              ...sq,
-              question: {
-                ...sq.question,
-                options: parsedOptions,
-              },
-            };
-          });
-
-          setSelectedQuestions(parsedSelected);
-        }
-      } else {
-        const error = await paperRes.json();
-        console.error('Paper API error:', error);
+        await refreshSelectedQuestions();
       }
 
       if (questionsRes.ok) {
         const questionsData = await questionsRes.json();
-        console.log('Questions data:', questionsData);
-
-        // Parse and shuffle options for preview (not saved yet)
         const parsedQuestions = (questionsData.questions || []).map((q: Question) => {
           const parsedOptions = parseOptions(q.options);
 
-          if (q.question_type === 'multiple_choice' && parsedOptions) {
+          if (normalizeQuestionType(q.question_type) === 'multiple_choice' && parsedOptions) {
             if (shouldNotShuffle(parsedOptions)) {
               return {
                 ...q,
@@ -219,7 +180,6 @@ export default function SelectQuestionsPage() {
               };
             } else {
               const { shuffled, order } = shuffleArrayWithOrder(parsedOptions);
-
               return {
                 ...q,
                 options: parsedOptions,
@@ -236,19 +196,13 @@ export default function SelectQuestionsPage() {
         });
 
         setQuestions(parsedQuestions);
-      } else {
-        const error = await questionsRes.json();
-        console.error('Questions API error:', error);
       }
 
       if (typesRes.ok) {
         const typesData = await typesRes.json();
-        console.log('Question types data:', typesData);
         if (typesData.questionTypes && typesData.questionTypes.length > 0) {
           setQuestionTypes(typesData.questionTypes);
         }
-      } else {
-        console.log('Using default question types');
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -260,54 +214,81 @@ export default function SelectQuestionsPage() {
   const fetchStudyUnits = async (courseId: number | string) => {
     try {
       setLoadingStudyUnits(true);
-      console.log('Fetching study units for course ID:', courseId);
-
-      console.log('Making API call to:', `/api/courses/${courseId}/study-units`);
       const response = await fetch(`/api/courses/${courseId}/study-units`);
-      console.log('Study units API response status:', response.status);
-
-      const responseText = await response.text();
-      console.log('Raw response text:', responseText);
 
       if (response.ok) {
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (e) {
-          console.error('Failed to parse JSON:', e);
-          alert('Failed to parse study units response');
-          setStudyUnits([]);
-          return;
-        }
-
-        console.log('Study units data:', data);
-
+        const data = await response.json();
         const unitsArray = data.study_units || data.studyUnits || [];
-
         if (Array.isArray(unitsArray)) {
           setStudyUnits(unitsArray);
-          console.log('Set study units state with', unitsArray.length, 'items');
         } else {
-          console.error('study_units is not an array:', data);
           setStudyUnits([]);
         }
       } else {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('Study units API error:', error);
-        alert(`Failed to load study units: ${error.error || 'Unknown error'}`);
         setStudyUnits([]);
       }
     } catch (error) {
       console.error('Failed to fetch study units:', error);
-      alert(`Error loading study units: ${error}`);
       setStudyUnits([]);
     } finally {
       setLoadingStudyUnits(false);
     }
   };
 
-  // Filter available questions (exclude already selected ones)
-  // USING useMemo to ensure this updates when dependencies change
+  const refreshSelectedQuestions = async () => {
+    try {
+      const selectedRes = await fetch(`/api/exam-papers/${paperId}/questions`);
+      if (selectedRes.ok) {
+        const selectedData = await selectedRes.json();
+
+        const parsedSelected = (selectedData.questions || []).map((sq: SelectedQuestion) => {
+          const parsedOptions = parseOptions(sq.question.options);
+
+          if (normalizeQuestionType(sq.question.question_type) === 'multiple_choice' && parsedOptions) {
+            let shuffledOptions: string[];
+            let optionOrder: number[];
+
+            if (sq.option_order && Array.isArray(sq.option_order)) {
+              shuffledOptions = applySavedOrder(parsedOptions, sq.option_order);
+              optionOrder = sq.option_order;
+            } else {
+              if (shouldNotShuffle(parsedOptions)) {
+                shuffledOptions = parsedOptions;
+                optionOrder = parsedOptions.map((_, idx) => idx);
+              } else {
+                const { shuffled, order } = shuffleArrayWithOrder(parsedOptions);
+                shuffledOptions = shuffled;
+                optionOrder = order;
+              }
+            }
+
+            return {
+              ...sq,
+              question: {
+                ...sq.question,
+                options: parsedOptions,
+                shuffledOptions,
+                optionOrder,
+              },
+            };
+          }
+
+          return {
+            ...sq,
+            question: {
+              ...sq.question,
+              options: parsedOptions,
+            },
+          };
+        });
+
+        setSelectedQuestions(parsedSelected);
+      }
+    } catch (error) {
+      console.error('Failed to refresh selected questions:', error);
+    }
+  };
+
   const availableQuestions = useMemo(() => {
     return questions.filter((question) => {
       const isAlreadySelected = selectedQuestions.some((sq) => sq.question_id === question.id);
@@ -323,7 +304,11 @@ export default function SelectQuestionsPage() {
       const matchesDifficulty =
         filterDifficulty === 'all' || question.difficulty_level === filterDifficulty;
       const matchesBloom = filterBloom === 'all' || question.bloom_level === filterBloom;
-      const matchesType = filterType === 'all' || question.question_type === filterType;
+      
+      // Normalize types for comparison
+      const normalizedQuestionType = normalizeQuestionType(question.question_type);
+      const normalizedFilterType = normalizeQuestionType(filterType);
+      const matchesType = filterType === 'all' || normalizedQuestionType === normalizedFilterType;
 
       return (
         matchesSearch &&
@@ -336,8 +321,6 @@ export default function SelectQuestionsPage() {
     });
   }, [questions, selectedQuestions, searchQuery, paper, filterStudyUnit, filterDifficulty, filterBloom, filterType]);
 
-  // Initialize section selection for available questions
-  // This ensures every question has a section value
   useEffect(() => {
     const initialSections: Record<number, string> = { ...selectedSection };
     let hasChanges = false;
@@ -354,24 +337,44 @@ export default function SelectQuestionsPage() {
     }
   }, [availableQuestions]);
 
-  const handleSelectQuestion = async (question: Question) => {
+  const handleSelectQuestion = async (
+    question: Question,
+    parentQuestionId?: number,
+    indentationLevel?: number
+  ) => {
     try {
-      // Get the selected section, with fallback to 'A'
-      const section = selectedSection[question.id] || 'A';
-      
-      console.log(`Adding question ${question.id} to section ${section}`);
-      
+      // Pre-validation: Check if MCQ or True/False is being added as sub-question
+      if (parentQuestionId) {
+        const normalizedType = normalizeQuestionType(question.question_type);
+        if (!canHaveSubQuestions(question.question_type)) {
+          alert('Multiple choice and True/False questions cannot be added as sub-questions');
+          return;
+        }
+      }
+
       const requestData: any = {
         question_id: question.id,
         marks: question.marks,
-        section: section,
+        is_sub_question: !!parentQuestionId,
       };
 
-      if (question.question_type === 'multiple_choice' && question.optionOrder) {
+      // Handle parent question (main question)
+      if (parentQuestionId) {
+        requestData.parent_question_id = parentQuestionId;
+        requestData.indentation_level = indentationLevel || 1;
+        // Section is inherited from parent - backend handles this
+      } else {
+        // Main question: use selected section
+        const section = selectedSection[question.id] || 'A';
+        requestData.section = section;
+      }
+
+      // Add option order for MCQs
+      if (normalizeQuestionType(question.question_type) === 'multiple_choice' && question.optionOrder) {
         requestData.option_order = question.optionOrder;
       }
 
-      console.log('Request data:', requestData);
+      console.log('📤 Sending request:', requestData);
 
       const response = await fetch(`/api/exam-papers/${paperId}/questions`, {
         method: 'POST',
@@ -379,161 +382,69 @@ export default function SelectQuestionsPage() {
         body: JSON.stringify(requestData),
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
-      // Try to parse the response
-      let responseData;
-      const contentType = response.headers.get('content-type');
-      console.log('Content-Type:', contentType);
-
-      if (contentType && contentType.includes('application/json')) {
-        responseData = await response.json();
-      } else {
-        // If not JSON, get as text
-        const text = await response.text();
-        console.log('Response text:', text);
-        responseData = { error: text || 'Non-JSON response received' };
-      }
-
-      console.log('API Response Data:', responseData);
-
       if (response.ok) {
-        console.log('Question added successfully:', responseData);
-
-        // Refresh the selected questions list
-        const selectedRes = await fetch(`/api/exam-papers/${paperId}/questions`);
-        if (selectedRes.ok) {
-          const selectedData = await selectedRes.json();
-
-          const parsedSelected = (selectedData.questions || []).map((sq: SelectedQuestion) => {
-            const parsedOptions = parseOptions(sq.question.options);
-
-            if (sq.question.question_type === 'multiple_choice' && parsedOptions) {
-              let shuffledOptions: string[];
-              let optionOrder: number[];
-
-              if (sq.option_order && Array.isArray(sq.option_order)) {
-                shuffledOptions = applySavedOrder(parsedOptions, sq.option_order);
-                optionOrder = sq.option_order;
-              } else {
-                if (shouldNotShuffle(parsedOptions)) {
-                  shuffledOptions = parsedOptions;
-                  optionOrder = parsedOptions.map((_, idx) => idx);
-                } else {
-                  const { shuffled, order } = shuffleArrayWithOrder(parsedOptions);
-                  shuffledOptions = shuffled;
-                  optionOrder = order;
-                }
+        const responseData = await response.json();
+        console.log('✅ Success:', responseData);
+        
+        await refreshSelectedQuestions();
+        
+        // Handle sub-question prompt for main questions only
+        if (!parentQuestionId) {
+          if (canHaveSubQuestions(question.question_type)) {
+            // Fetch the newly added question to get its ID
+            const selectedRes = await fetch(`/api/exam-papers/${paperId}/questions`);
+            if (selectedRes.ok) {
+              const selectedData = await selectedRes.json();
+              const newlyAdded = selectedData.questions.find(
+                (sq: SelectedQuestion) => sq.question_id === question.id && !sq.parent_question_id
+              );
+              
+              if (newlyAdded) {
+                setLastAddedQuestion(newlyAdded);
+                setShowSubQuestionPrompt(true);
+                setSubQuestionLevel(1);
               }
-
-              return {
-                ...sq,
-                question: {
-                  ...sq.question,
-                  options: parsedOptions,
-                  shuffledOptions,
-                  optionOrder,
-                },
-              };
             }
-
-            return {
-              ...sq,
-              question: {
-                ...sq.question,
-                options: parsedOptions,
-              },
-            };
-          });
-
-          setSelectedQuestions(parsedSelected);
+          }
+        } else {
+          // Sub-question added successfully
+          setAddingSubQuestionFor(null);
+          setShowSubQuestionPrompt(false);
+          setLastAddedQuestion(null);
         }
       } else {
-        // Enhanced error reporting
-        console.error('Add question failed with status:', response.status);
-        console.error('Add question error data:', responseData);
-        
-        const errorMessage = responseData?.error 
-          || responseData?.message 
-          || `Failed to add question (Status: ${response.status})`;
-        
-        alert(errorMessage);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+        console.error('❌ API Error:', errorMessage);
+        alert(`Failed to add question: ${errorMessage}`);
       }
     } catch (error) {
-      console.error('Failed to select question - Exception:', error);
-      console.error('Error details:', {
-        name: error instanceof Error ? error.name : 'Unknown',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      alert('Failed to add question: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('❌ Failed to select question:', error);
+      alert('Failed to add question: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
   const handleRemoveQuestion = async (selectedQuestion: SelectedQuestion) => {
-    if (!confirm('Remove this question from the paper?')) return;
+    const hasSubQuestions = selectedQuestions.some(
+      sq => sq.parent_question_id === selectedQuestion.id
+    );
+    
+    const confirmMessage = hasSubQuestions
+      ? 'Remove this question from the paper? This will also remove all its sub-questions.'
+      : 'Remove this question from the paper?';
+    
+    if (!confirm(confirmMessage)) return;
 
     try {
-      // Use query parameter for DELETE as expected by the API
       const response = await fetch(
-        `/api/exam-papers/${paperId}/questions?question_id=${selectedQuestion.question_id}`,
+        `/api/exam-papers/${paperId}/questions?epq_id=${selectedQuestion.id}`,
         { method: 'DELETE' }
       );
 
       if (response.ok) {
-        console.log('Question removed successfully');
-
-        const selectedRes = await fetch(`/api/exam-papers/${paperId}/questions`);
-        if (selectedRes.ok) {
-          const selectedData = await selectedRes.json();
-
-          const parsedSelected = (selectedData.questions || []).map((sq: SelectedQuestion) => {
-            const parsedOptions = parseOptions(sq.question.options);
-
-            if (sq.question.question_type === 'multiple_choice' && parsedOptions) {
-              let shuffledOptions: string[];
-              let optionOrder: number[];
-
-              if (sq.option_order && Array.isArray(sq.option_order)) {
-                shuffledOptions = applySavedOrder(parsedOptions, sq.option_order);
-                optionOrder = sq.option_order;
-              } else {
-                if (shouldNotShuffle(parsedOptions)) {
-                  shuffledOptions = parsedOptions;
-                  optionOrder = parsedOptions.map((_, idx) => idx);
-                } else {
-                  const { shuffled, order } = shuffleArrayWithOrder(parsedOptions);
-                  shuffledOptions = shuffled;
-                  optionOrder = order;
-                }
-              }
-
-              return {
-                ...sq,
-                question: {
-                  ...sq.question,
-                  options: parsedOptions,
-                  shuffledOptions,
-                  optionOrder,
-                },
-              };
-            }
-
-            return {
-              ...sq,
-              question: {
-                ...sq.question,
-                options: parsedOptions,
-              },
-            };
-          });
-
-          setSelectedQuestions(parsedSelected);
-        }
+        await refreshSelectedQuestions();
       } else {
         const error = await response.json();
-        console.error('Remove question error:', error);
         alert(error.error || 'Failed to remove question');
       }
     } catch (error) {
@@ -542,7 +453,18 @@ export default function SelectQuestionsPage() {
     }
   };
 
-  // Helper function to render MCQ options
+  const handleContinueWithNewQuestion = () => {
+    setShowSubQuestionPrompt(false);
+    setLastAddedQuestion(null);
+  };
+
+  const handleAddSubQuestion = () => {
+    if (lastAddedQuestion) {
+      setShowSubQuestionPrompt(false);
+      setAddingSubQuestionFor(lastAddedQuestion.id);
+    }
+  };
+
   const renderMCQOptions = (shuffledOptions: string[] | undefined) => {
     if (!shuffledOptions || !Array.isArray(shuffledOptions)) return null;
 
@@ -558,25 +480,70 @@ export default function SelectQuestionsPage() {
     );
   };
 
-  // Group selected questions by section
-  const groupedBySection = selectedQuestions.reduce((acc, sq) => {
-    const section = sq.section || 'A';
-    if (!acc[section]) {
-      acc[section] = [];
-    }
-    acc[section].push(sq);
-    return acc;
-  }, {} as Record<string, SelectedQuestion[]>);
+  const groupedBySection = useMemo(() => {
+    const grouped: Record<string, SelectedQuestion[]> = {};
+    
+    // First, add all main questions to their sections
+    const mainQuestions = selectedQuestions.filter(sq => !sq.parent_question_id);
+    mainQuestions.forEach(sq => {
+      const section = sq.section || 'A';
+      if (!grouped[section]) {
+        grouped[section] = [];
+      }
+      grouped[section].push(sq);
+    });
+    
+    // Then, recursively add sub-questions after their parents
+    const addSubQuestions = (parentId: number, section: string) => {
+      const children = selectedQuestions
+        .filter(sq => sq.parent_question_id === parentId)
+        .sort((a, b) => a.sequence_order - b.sequence_order);
+      
+      children.forEach(child => {
+        const parentIndex = grouped[section].findIndex(q => q.id === parentId);
+        if (parentIndex !== -1) {
+          // Find the correct insertion point (after parent and all its existing children)
+          let insertIndex = parentIndex + 1;
+          while (
+            insertIndex < grouped[section].length &&
+            grouped[section][insertIndex].parent_question_id === parentId
+          ) {
+            insertIndex++;
+          }
+          grouped[section].splice(insertIndex, 0, child);
+          
+          // Recursively add children of this sub-question
+          addSubQuestions(child.id, section);
+        }
+      });
+    };
+    
+    // Add sub-questions for each main question
+    mainQuestions.forEach(mainQ => {
+      addSubQuestions(mainQ.id, mainQ.section || 'A');
+    });
+    
+    return grouped;
+  }, [selectedQuestions]);
 
   const totalMarks = selectedQuestions.reduce((sum, sq) => sum + sq.marks, 0);
 
   const difficultyColors = {
+    easy: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    hard: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     Easy: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
     Medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
     Hard: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   };
 
   const bloomColors = {
+    remember: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    understand: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+    apply: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    analyze: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    evaluate: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    create: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     Remember: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
     Understand: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
     Apply: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
@@ -601,9 +568,6 @@ export default function SelectQuestionsPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Select Questions</h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             {paper?.title} {paper?.course_code && `• ${paper.course_code}`}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500">
-            Add questions from {paper?.course_code || 'this course'} to your exam paper
           </p>
         </div>
 
@@ -640,11 +604,9 @@ export default function SelectQuestionsPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Available Questions */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Available Questions
-            </h2>
-          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Available Questions
+          </h2>
 
           {/* Filters */}
           <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -665,11 +627,7 @@ export default function SelectQuestionsPage() {
                   className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800"
                 >
                   <option value="all">
-                    {loadingStudyUnits
-                      ? 'Loading units...'
-                      : studyUnits.length === 0
-                      ? 'No study units'
-                      : 'All Study Units'}
+                    {loadingStudyUnits ? 'Loading...' : 'All Study Units'}
                   </option>
                   {studyUnits.map((unit) => (
                     <option key={unit.id} value={unit.name || unit.title}>
@@ -686,7 +644,7 @@ export default function SelectQuestionsPage() {
                   <option value="all">All Types</option>
                   {questionTypes.map((type) => (
                     <option key={type} value={type}>
-                      {type}
+                      {type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </option>
                   ))}
                 </select>
@@ -697,9 +655,9 @@ export default function SelectQuestionsPage() {
                   className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="all">All Difficulties</option>
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
                 </select>
 
                 <select
@@ -708,12 +666,12 @@ export default function SelectQuestionsPage() {
                   className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="all">All Bloom Levels</option>
-                  <option value="Remember">Remember</option>
-                  <option value="Understand">Understand</option>
-                  <option value="Apply">Apply</option>
-                  <option value="Analyze">Analyze</option>
-                  <option value="Evaluate">Evaluate</option>
-                  <option value="Create">Create</option>
+                  <option value="remember">Remember</option>
+                  <option value="understand">Understand</option>
+                  <option value="apply">Apply</option>
+                  <option value="analyze">Analyze</option>
+                  <option value="evaluate">Evaluate</option>
+                  <option value="create">Create</option>
                 </select>
               </div>
             </div>
@@ -725,9 +683,7 @@ export default function SelectQuestionsPage() {
               <div className="rounded-lg border border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
                 <div className="text-4xl">🔍</div>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  {selectedQuestions.length > 0 && questions.length > 0
-                    ? 'All matching questions have been selected'
-                    : 'No questions available'}
+                  No questions available
                 </p>
               </div>
             ) : (
@@ -736,61 +692,47 @@ export default function SelectQuestionsPage() {
                   key={question.id}
                   className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
                 >
-                  <div className="mb-3 flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="mb-2 flex flex-wrap gap-1">
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                          {question.course_code}
+                  <div className="mb-3">
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        {question.course_code}
+                      </span>
+                      {question.study_unit_title && (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                          {question.study_unit_title}
                         </span>
-                        {question.study_unit_title && (
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200">
-                            {question.study_unit_title}
-                          </span>
-                        )}
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            difficultyColors[
-                              question.difficulty_level as keyof typeof difficultyColors
-                            ]
-                          }`}
-                        >
-                          {question.difficulty_level}
-                        </span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            bloomColors[question.bloom_level as keyof typeof bloomColors]
-                          }`}
-                        >
-                          {question.bloom_level}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                        {question.question_text}
-                      </p>
-
-                      {/* Show MCQ options if available */}
-                      {question.question_type === 'multiple_choice' &&
-                        renderMCQOptions(question.shuffledOptions)}
-
-                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        {question.question_type} • {question.marks} marks
-                      </p>
+                      )}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          difficultyColors[question.difficulty_level as keyof typeof difficultyColors] || 
+                          difficultyColors[question.difficulty_level.toLowerCase() as keyof typeof difficultyColors]
+                        }`}
+                      >
+                        {question.difficulty_level}
+                      </span>
                     </div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                      {question.question_text}
+                    </p>
+
+                    {normalizeQuestionType(question.question_type) === 'multiple_choice' &&
+                      renderMCQOptions(question.shuffledOptions)}
+
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      {question.question_type.replace(/_/g, ' ')} • {question.marks} marks
+                    </p>
                   </div>
                   
-                  {/* Section Selection and Add Button - IMPROVED */}
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                       Add to:
                     </label>
                     <select
                       value={selectedSection[question.id] || 'A'}
                       onChange={(e) => {
-                        const newSection = e.target.value;
-                        console.log(`Section changed for question ${question.id}: ${newSection}`);
                         setSelectedSection((prev) => ({
                           ...prev,
-                          [question.id]: newSection,
+                          [question.id]: e.target.value,
                         }));
                       }}
                       className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -803,7 +745,7 @@ export default function SelectQuestionsPage() {
                     </select>
                     <button
                       onClick={() => handleSelectQuestion(question)}
-                      className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 active:bg-blue-800 flex-shrink-0 shadow-sm"
+                      className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 flex-shrink-0"
                     >
                       Add →
                     </button>
@@ -814,14 +756,14 @@ export default function SelectQuestionsPage() {
           </div>
         </div>
 
-        {/* Selected Questions - Grouped by Section */}
+        {/* Selected Questions */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Selected Questions ({selectedQuestions.length})
             </h2>
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Total: {totalMarks} marks
+              {totalMarks} marks
             </span>
           </div>
 
@@ -832,86 +774,227 @@ export default function SelectQuestionsPage() {
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                   No questions selected yet
                 </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                  Select questions from the available list and assign them to sections
-                </p>
               </div>
             ) : (
-              // Display questions grouped by section
               Object.entries(groupedBySection)
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([section, sectionQuestions]) => (
                   <div key={section} className="space-y-3">
-                    {/* Section Header */}
-                    <div className="sticky top-0 z-10 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 shadow-md">
+                    <div className="sticky top-0 z-10 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold text-white">
-                          SECTION {section}
-                        </h3>
+                        <h3 className="text-sm font-bold text-white">SECTION {section}</h3>
                         <span className="text-xs font-medium text-blue-100">
-                          {sectionQuestions.length} question{sectionQuestions.length !== 1 ? 's' : ''} • {' '}
-                          {sectionQuestions.reduce((sum, sq) => sum + sq.marks, 0)} marks
+                          {sectionQuestions.length} • {sectionQuestions.reduce((sum, sq) => sum + sq.marks, 0)} marks
                         </span>
                       </div>
                     </div>
 
-                    {/* Section Questions */}
-                    {sectionQuestions.map((sq, index) => (
-                      <div
-                        key={sq.question_id}
-                        className="rounded-lg border border-green-200 bg-green-50 p-4 shadow-sm dark:border-green-800 dark:bg-green-900/20"
-                      >
-                        <div className="mb-2 flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="mb-1 flex items-center gap-2 flex-wrap">
-                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-600 text-xs font-bold text-white">
-                                {index + 1}
-                              </span>
-                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                {sq.question.course_code}
-                              </span>
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  difficultyColors[
-                                    sq.question.difficulty_level as keyof typeof difficultyColors
-                                  ]
-                                }`}
-                              >
-                                {sq.question.difficulty_level}
-                              </span>
-                              {sq.option_order && (
-                                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                                  🔀 Shuffled
+                    {sectionQuestions.map((sq) => {
+                      const isMainQuestion = !sq.parent_question_id;
+                      const indentClass = 
+                        sq.indentation_level === 1 ? 'ml-6' : 
+                        sq.indentation_level === 2 ? 'ml-12' : 
+                        sq.indentation_level && sq.indentation_level > 2 ? 'ml-16' : '';
+                      
+                      // Format display number
+                      let displayNum: string;
+                      if (isMainQuestion) {
+                        // Main question: use full display number
+                        displayNum = sq.display_number || sq.question_number;
+                      } else {
+                        // Sub-question: extract just the sub-part
+                        // e.g., "1(a)" -> "(a)", "2(i)" -> "(i)"
+                        if (sq.display_number && sq.display_number.includes('(')) {
+                          displayNum = sq.display_number.substring(sq.display_number.indexOf('('));
+                        } else {
+                          displayNum = sq.display_number || sq.question_number;
+                        }
+                      }
+                      
+                      return (
+                        <div
+                          key={`${sq.id}-${sq.question_id}`}
+                          className={`rounded-lg border p-4 ${
+                            isMainQuestion 
+                              ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' 
+                              : 'border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-900/20'
+                          } ${indentClass}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="mb-2 flex items-center gap-2 flex-wrap">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold text-white ${
+                                  isMainQuestion ? 'bg-green-600' : 'bg-purple-600'
+                                }`}>
+                                  {displayNum}
                                 </span>
-                              )}
+                                {!isMainQuestion && (
+                                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                                    Sub-question (Level {sq.indentation_level || 1})
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                                {sq.question.question_text}
+                              </p>
+
+                              {normalizeQuestionType(sq.question.question_type) === 'multiple_choice' &&
+                                renderMCQOptions(sq.question.shuffledOptions)}
+
+                              <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                                {sq.question.question_type.replace(/_/g, ' ')} • {sq.marks} marks
+                              </p>
                             </div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                              {sq.question.question_text}
-                            </p>
-
-                            {/* Show MCQ options if available */}
-                            {sq.question.question_type === 'multiple_choice' &&
-                              renderMCQOptions(sq.question.shuffledOptions)}
-
-                            <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                              {sq.question.question_type} • {sq.marks} marks
-                            </p>
+                            <div className="ml-2 flex flex-col gap-2">
+                              {isMainQuestion && canHaveSubQuestions(sq.question.question_type) && (
+                                <button
+                                  onClick={() => {
+                                    setLastAddedQuestion(sq);
+                                    setAddingSubQuestionFor(sq.id);
+                                    setSubQuestionLevel(1);
+                                  }}
+                                  className="rounded-lg border border-purple-300 px-3 py-1.5 text-xs font-medium text-purple-700 transition hover:bg-purple-50 dark:border-purple-600 dark:text-purple-400"
+                                >
+                                  + Sub
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleRemoveQuestion(sq)}
+                                className="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-600 dark:text-red-400"
+                              >
+                                Remove
+                              </button>
+                            </div>
                           </div>
-                          <button
-                            onClick={() => handleRemoveQuestion(sq)}
-                            className="ml-2 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20 flex-shrink-0"
-                          >
-                            Remove
-                          </button>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ))
             )}
           </div>
         </div>
       </div>
+
+      {/* Prompt: Add Sub-Question or Continue */}
+      {showSubQuestionPrompt && lastAddedQuestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+            <div className="mb-4 text-center">
+              <div className="text-4xl mb-3">🎯</div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                Question Added Successfully!
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Would you like to add a sub-question to this question?
+              </p>
+              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-xs font-medium text-gray-900 dark:text-white">
+                  {lastAddedQuestion.display_number || lastAddedQuestion.question_number}. {lastAddedQuestion.question.question_text}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleContinueWithNewQuestion}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                No, Add New Question
+              </button>
+              <button
+                onClick={handleAddSubQuestion}
+                className="flex-1 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700"
+              >
+                Yes, Add Sub-Question
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sub-Question Selection Dialog */}
+      {addingSubQuestionFor && !showSubQuestionPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg bg-white p-6 dark:bg-gray-800">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                Add Sub-Question
+              </h3>
+              <button
+                onClick={() => {
+                  setAddingSubQuestionFor(null);
+                  setLastAddedQuestion(null);
+                }}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Sub-question Level:
+              </label>
+              <select
+                value={subQuestionLevel}
+                onChange={(e) => setSubQuestionLevel(parseInt(e.target.value))}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="1">Level 1 (a, b, c...)</option>
+                <option value="2">Level 2 (i, ii, iii...)</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Note: Multiple choice and True/False questions cannot be added as sub-questions
+              </p>
+            </div>
+
+            <div className="space-y-3 max-h-[500px] overflow-y-auto">
+              {availableQuestions
+                .filter(q => canHaveSubQuestions(q.question_type))
+                .length === 0 ? (
+                <div className="text-center p-8">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    No eligible questions available
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    MCQs and True/False questions cannot be added as sub-questions
+                  </p>
+                </div>
+              ) : (
+                availableQuestions
+                  .filter(q => canHaveSubQuestions(q.question_type))
+                  .map((question) => (
+                    <div
+                      key={question.id}
+                      className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900"
+                    >
+                      <div className="mb-2">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                          {question.question_text}
+                        </p>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                            {question.question_type.replace(/_/g, ' ')}
+                          </span>
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            {question.marks} marks
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleSelectQuestion(question, addingSubQuestionFor, subQuestionLevel)}
+                        className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-purple-700"
+                      >
+                        Add as Sub-Question
+                      </button>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

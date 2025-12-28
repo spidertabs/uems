@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable react-hooks/exhaustive-deps */
@@ -20,14 +21,21 @@ interface ExamPaper {
   duration: number;
   total_marks: number;
   instructions: string;
+  footer_text?: string;
 }
 
 interface Question {
+  id: number;
+  question_id: number;
   question_text: string;
   question_type: string;
   marks: number;
   section: string;
   sequence_order: number;
+  question_number: string;
+  display_number?: string;
+  parent_question_id?: number | null;
+  indentation_level?: number;
   options?: string | string[];
   option_order?: number[] | null;
   shuffledOptions?: string[];
@@ -110,48 +118,79 @@ export default function PreviewExamPaperPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/exam-papers/${paperId}`);
       
-      if (!response.ok) {
-        console.error('Failed to fetch paper:', response.statusText);
+      // Fetch paper details and questions
+      const [paperResponse, questionsResponse] = await Promise.all([
+        fetch(`/api/exam-papers/${paperId}`),
+        fetch(`/api/exam-papers/${paperId}/questions`)
+      ]);
+      
+      if (!paperResponse.ok) {
+        console.error('Failed to fetch paper:', paperResponse.statusText);
         setPaper(null);
         setLoading(false);
         return;
       }
 
-      const data = await response.json();
-      setPaper(data.paper);
+      const paperData = await paperResponse.json();
+      setPaper(paperData.paper);
+      setProgrammes(paperData.programmes || []);
 
-      // Parse and apply shuffle order to questions
-      const parsedQuestions = (data.questions || []).map((q: Question) => {
-        const parsedOptions = parseOptions(q.options);
+      if (questionsResponse.ok) {
+        const questionsData = await questionsResponse.json();
+        
+        // Parse and apply shuffle order to questions
+        const parsedQuestions = (questionsData.questions || []).map((q: any) => {
+          const parsedOptions = parseOptions(q.question?.options || q.options);
 
-        if (q.question_type === 'multiple_choice' && parsedOptions) {
-          // If we have a saved order, use it
-          let shuffledOptions: string[];
+          const questionType = q.question?.question_type || q.question_type;
+          
+          if (questionType === 'multiple_choice' && parsedOptions) {
+            // If we have a saved order, use it
+            let shuffledOptions: string[];
 
-          if (q.option_order && Array.isArray(q.option_order)) {
-            shuffledOptions = applySavedOrder(parsedOptions, q.option_order);
-          } else {
-            // No saved order, just use original
-            shuffledOptions = parsedOptions;
+            if (q.option_order && Array.isArray(q.option_order)) {
+              shuffledOptions = applySavedOrder(parsedOptions, q.option_order);
+            } else {
+              // No saved order, just use original
+              shuffledOptions = parsedOptions;
+            }
+
+            return {
+              id: q.id,
+              question_id: q.question_id,
+              question_text: q.question?.question_text || q.question_text,
+              question_type: questionType,
+              marks: q.marks,
+              section: q.section,
+              sequence_order: q.sequence_order,
+              question_number: q.question_number,
+              display_number: q.display_number,
+              parent_question_id: q.parent_question_id,
+              indentation_level: q.indentation_level || 0,
+              options: parsedOptions,
+              shuffledOptions,
+            };
           }
 
           return {
-            ...q,
+            id: q.id,
+            question_id: q.question_id,
+            question_text: q.question?.question_text || q.question_text,
+            question_type: questionType,
+            marks: q.marks,
+            section: q.section,
+            sequence_order: q.sequence_order,
+            question_number: q.question_number,
+            display_number: q.display_number,
+            parent_question_id: q.parent_question_id,
+            indentation_level: q.indentation_level || 0,
             options: parsedOptions,
-            shuffledOptions,
           };
-        }
+        });
 
-        return {
-          ...q,
-          options: parsedOptions,
-        };
-      });
-
-      setQuestions(parsedQuestions);
-      setProgrammes(data.programmes || []);
+        setQuestions(parsedQuestions);
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
       setPaper(null);
@@ -172,15 +211,19 @@ export default function PreviewExamPaperPage() {
   };
 
   // Helper function to render MCQ options
-  const renderMCQOptions = (shuffledOptions: string[] | undefined) => {
+  const renderMCQOptions = (shuffledOptions: string[] | undefined, indentLevel: number = 0) => {
     if (!shuffledOptions || !Array.isArray(shuffledOptions)) return null;
 
     const useTwoColumns = canUseTwoColumns(shuffledOptions);
+    const baseIndent = indentLevel * 24; // 24px per level
 
     if (useTwoColumns) {
       // Two-column layout
       return (
-        <div className="mt-3 ml-6 grid grid-cols-2 gap-x-6 gap-y-2">
+        <div 
+          className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2"
+          style={{ marginLeft: `${baseIndent + 24}px` }}
+        >
           {shuffledOptions.map((option, idx) => (
             <div key={idx} className="flex items-start gap-3">
               <span className="font-semibold print-text-black">{String.fromCharCode(65 + idx)}.</span>
@@ -192,7 +235,10 @@ export default function PreviewExamPaperPage() {
     } else {
       // Single-column layout for longer options
       return (
-        <div className="mt-3 ml-6 space-y-2">
+        <div 
+          className="mt-3 space-y-2"
+          style={{ marginLeft: `${baseIndent + 24}px` }}
+        >
           {shuffledOptions.map((option, idx) => (
             <div key={idx} className="flex items-start gap-3">
               <span className="font-semibold print-text-black">{String.fromCharCode(65 + idx)}.</span>
@@ -226,6 +272,107 @@ export default function PreviewExamPaperPage() {
     return date.toLocaleDateString('en-US', options);
   };
 
+  // NEW: Group questions hierarchically by section
+  const groupQuestionsBySection = () => {
+    const sections: Record<string, Question[]> = {};
+    
+    // First, add all main questions to their sections
+    const mainQuestions = questions.filter(q => !q.parent_question_id);
+    mainQuestions.forEach(q => {
+      const section = q.section || 'A';
+      if (!sections[section]) {
+        sections[section] = [];
+      }
+      sections[section].push(q);
+    });
+    
+    // Then, recursively add sub-questions after their parents
+    const addSubQuestions = (parentId: number, section: string) => {
+      const children = questions
+        .filter(q => q.parent_question_id === parentId)
+        .sort((a, b) => a.sequence_order - b.sequence_order);
+      
+      children.forEach(child => {
+        const parentIndex = sections[section].findIndex(q => q.id === parentId);
+        if (parentIndex !== -1) {
+          // Find the correct insertion point (after parent and all its existing children)
+          let insertIndex = parentIndex + 1;
+          while (
+            insertIndex < sections[section].length &&
+            sections[section][insertIndex].parent_question_id === parentId
+          ) {
+            insertIndex++;
+          }
+          sections[section].splice(insertIndex, 0, child);
+          
+          // Recursively add children of this sub-question
+          addSubQuestions(child.id, section);
+        }
+      });
+    };
+    
+    // Add sub-questions for each main question
+    mainQuestions.forEach(mainQ => {
+      addSubQuestions(mainQ.id, mainQ.section || 'A');
+    });
+    
+    return sections;
+  };
+
+  // NEW: Render a single question with proper indentation
+  const renderQuestion = (question: Question, mainQuestionIndex: number) => {
+    const indentLevel = question.indentation_level || 0;
+    const isMainQuestion = !question.parent_question_id;
+    const baseIndent = indentLevel * 24; // 24px per level of indentation
+
+    // Format display number
+    let displayNum: string;
+    if (isMainQuestion) {
+      // Main question: use full number (1, 2, 3)
+      displayNum = String(mainQuestionIndex);
+    } else {
+      // Sub-question: extract just the sub-part from display_number
+      // e.g., "1(a)" -> "(a)", "2(i)" -> "(i)"
+      if (question.display_number && question.display_number.includes('(')) {
+        // Extract everything from the opening parenthesis onwards: "1(a)" -> "(a)"
+        displayNum = question.display_number.substring(question.display_number.indexOf('('));
+      } else {
+        // Fallback
+        displayNum = question.display_number || question.question_number || '';
+      }
+    }
+
+    return (
+      <div 
+        key={`${question.id}-${question.question_id}`}
+        className="break-inside-avoid"
+        style={{ marginLeft: isMainQuestion ? '0px' : `${baseIndent}px` }}
+      >
+        <div className="flex items-start">
+          <span className="mr-3 font-bold text-gray-900 dark:text-white print:text-gray-900 whitespace-nowrap">
+            {displayNum}.
+          </span>
+          <div className="flex-1">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-justify text-gray-900 dark:text-white print:text-gray-900">
+                  {question.question_text}
+                </p>
+
+                {/* Show MCQ options if available */}
+                {question.question_type === 'multiple_choice' &&
+                  renderMCQOptions(question.shuffledOptions, indentLevel)}
+              </div>
+              <span className="flex-shrink-0 font-semibold text-gray-900 dark:text-white print:text-gray-900 whitespace-nowrap">
+                [{question.marks} mark{question.marks !== 1 ? 's' : ''}]
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center lg:pl-64">
@@ -250,15 +397,7 @@ export default function PreviewExamPaperPage() {
     );
   }
 
-  // Group questions by section
-  const sections = questions.reduce((acc, q) => {
-    if (!acc[q.section]) {
-      acc[q.section] = [];
-    }
-    acc[q.section].push(q);
-    return acc;
-  }, {} as Record<string, Question[]>);
-
+  const sections = groupQuestionsBySection();
   const year = getYearFromSemester(paper.semester);
   const semesterInYear = getSemesterInYear(paper.semester);
 
@@ -417,54 +556,64 @@ export default function PreviewExamPaperPage() {
           ) : (
             Object.entries(sections)
               .sort(([a], [b]) => a.localeCompare(b))
-              .map(([section, sectionQuestions]) => (
-                <div key={section} className="break-inside-avoid">
-                  <div className="mb-4 border-b-2 border-gray-700 pb-2 dark:border-gray-300 print:border-gray-700">
-                    <h3 className="text-lg font-bold uppercase text-gray-900 dark:text-white print:text-gray-900">
-                      Section {section}
-                      <span className="ml-4 text-sm font-normal">
-                        ({sectionQuestions.reduce((sum, q) => sum + q.marks, 0)} Marks)
-                      </span>
-                    </h3>
-                  </div>
+              .map(([section, sectionQuestions]) => {
+                // Calculate total marks for section (including sub-questions)
+                const totalMarks = sectionQuestions.reduce((sum, q) => sum + q.marks, 0);
+                
+                // Get only main questions for counting
+                const mainQuestionsCount = sectionQuestions.filter(q => !q.parent_question_id).length;
+                
+                return (
+                  <div key={section} className="break-inside-avoid">
+                    <div className="mb-4 border-b-2 border-gray-700 pb-2 dark:border-gray-300 print:border-gray-700">
+                      <h3 className="text-lg font-bold uppercase text-gray-900 dark:text-white print:text-gray-900">
+                        Section {section}
+                        <span className="ml-4 text-sm font-normal">
+                          ({totalMarks} Marks)
+                        </span>
+                      </h3>
+                    </div>
 
-                  <div className="space-y-6">
-                    {sectionQuestions
-                      .sort((a, b) => a.sequence_order - b.sequence_order)
-                      .map((question, index) => (
-                        <div key={index} className="break-inside-avoid">
-                          <div className="flex items-start">
-                            <span className="mr-3 font-bold text-gray-900 dark:text-white print:text-gray-900">
-                              {index + 1}.
-                            </span>
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                  <p className="text-justify text-gray-900 dark:text-white print:text-gray-900">
-                                    {question.question_text}
-                                  </p>
-
-                                  {/* Show MCQ options if available */}
-                                  {question.question_type === 'multiple_choice' &&
-                                    renderMCQOptions(question.shuffledOptions)}
-                                </div>
-                                <span className="flex-shrink-0 font-semibold text-gray-900 dark:text-white print:text-gray-900">
-                                  [{question.marks} mark{question.marks !== 1 ? 's' : ''}]
-                                </span>
-                              </div>
-                            </div>
+                    <div className="space-y-6">
+                      {sectionQuestions.map((question, index) => {
+                        // Only render main questions and their children
+                        // Children are rendered within their parents
+                        if (question.parent_question_id) {
+                          return null; // Skip - will be rendered with parent
+                        }
+                        
+                        // Get main question index (not including sub-questions)
+                        const mainQuestionIndex = sectionQuestions
+                          .filter(q => !q.parent_question_id)
+                          .findIndex(q => q.id === question.id) + 1;
+                        
+                        // Render main question
+                        const mainQuestionElement = renderQuestion(question, mainQuestionIndex);
+                        
+                        // Get all children for this question
+                        const children = sectionQuestions.filter(
+                          q => q.parent_question_id === question.id
+                        );
+                        
+                        return (
+                          <div key={question.id} className="space-y-4">
+                            {mainQuestionElement}
+                            {children.map(child => renderQuestion(child, 0))}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
           )}
         </div>
 
         {/* Footer */}
         <div className="mt-12 border-t-2 border-gray-900 pt-4 text-center text-xs text-gray-700 dark:border-gray-300 dark:text-gray-400 print:border-gray-900 print:text-gray-700">
-          <p className="font-bold">*** END OF EXAMINATION ***</p>
+          <p className="font-bold">
+            {paper.footer_text || '*** END OF EXAMINATION ***'}
+          </p>
           <p className="mt-2">{paper.paper_code} | Page 1 of 1</p>
         </div>
       </div>

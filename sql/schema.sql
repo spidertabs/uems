@@ -1,9 +1,9 @@
 -- ============================================================
 --  UEMS - University Exam Management System
---  Complete MySQL Database Schema
+--  Complete MySQL Database Schema with Sub-Questions Support
+--  Version: 2.0
+--  Last Updated: 2024
 -- ============================================================
-
--- =====================================================
 -- ORGANIZATIONAL STRUCTURE
 -- =====================================================
 
@@ -221,21 +221,28 @@ CREATE TABLE questions (
 -- Exam Papers Table (Created by Lecturers, Approved by HOD)
 CREATE TABLE exam_papers (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    -- Paper identity
     paper_code VARCHAR(50) NOT NULL UNIQUE,
+    -- Relationships
     course_id INT NOT NULL,
     created_by INT NOT NULL COMMENT 'Lecturer who created the paper',
+    -- Exam details
     exam_type ENUM('TEST', 'CAT', 'FINAL') NOT NULL,
     academic_year INT NOT NULL,
     semester INT NOT NULL,
     exam_date DATE,
     duration INT COMMENT 'Duration in minutes',
     total_marks INT DEFAULT 0,
-    instructions TEXT,
+    -- Display content (PRINT-RELATED ✅)
+    instructions TEXT COMMENT 'Instructions shown at the top of the paper',
+    footer_text VARCHAR(255) DEFAULT NULL
+        COMMENT 'Footer text shown at bottom (defaults to "*** END OF EXAMINATION ***" if NULL)',
     -- Workflow status
-    status ENUM('draft', 'submitted', 'hod_review', 'hod_approved', 'hod_rejected',
-                'dean_review', 'dean_approved', 'dean_rejected',
-                'ready_for_print', 'printing', 'printed', 'published') 
-           DEFAULT 'draft',
+    status ENUM(
+        'draft', 'submitted', 'hod_review', 'hod_approved', 'hod_rejected',
+        'dean_review', 'dean_approved', 'dean_rejected',
+        'ready_for_print', 'printing', 'printed', 'published'
+    ) DEFAULT 'draft',
     -- Approval tracking
     hod_id INT COMMENT 'HOD who needs to approve',
     hod_approved_at TIMESTAMP NULL,
@@ -244,19 +251,25 @@ CREATE TABLE exam_papers (
     exam_master_id INT COMMENT 'Exam Master handling printing',
     printed_at TIMESTAMP NULL,
     print_quantity INT DEFAULT 0,
-    -- Metadata
+    -- Workflow timestamps
     submitted_at TIMESTAMP NULL,
     published_at TIMESTAMP NULL,
+    -- Versioning & locking
     version INT DEFAULT 1,
     is_locked BOOLEAN DEFAULT FALSE,
+    -- Extra data
     metadata JSON COMMENT 'Additional paper metadata',
+    -- Audit fields
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+    -- Foreign keys
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (hod_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (dean_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (exam_master_id) REFERENCES users(id) ON DELETE SET NULL,
+    -- Indexes
     INDEX idx_paper_code (paper_code),
     INDEX idx_course (course_id),
     INDEX idx_created_by (created_by),
@@ -269,7 +282,10 @@ CREATE TABLE exam_papers (
     INDEX idx_papers_status_type (status, exam_type),
     INDEX idx_papers_creator_status (created_by, status),
     INDEX idx_papers_hod_status (hod_id, status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
 
 -- Exam Paper Programmes Junction Table (Many-to-Many)
 CREATE TABLE exam_paper_programmes (
@@ -286,38 +302,48 @@ CREATE TABLE exam_paper_programmes (
     INDEX idx_paper_programmes_programme (programme_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Exam Paper Questions (Junction Table with ordering and custom numbering)
+-- =====================================================
+-- EXAM PAPER QUESTIONS (WITH SUB-QUESTIONS SUPPORT)
+-- =====================================================
+
+-- Exam Paper Questions Table with Hierarchical Sub-Question Support
 CREATE TABLE exam_paper_questions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     exam_paper_id INT NOT NULL,
     question_id INT NOT NULL,
-    section VARCHAR(10) DEFAULT 'A' COMMENT 'Section A, B, C, etc.',
-    question_number VARCHAR(20) NOT NULL COMMENT 'Custom question number (e.g., "1", "2a", "2b", "3(i)", "3(ii)")',
-    display_number VARCHAR(50) COMMENT 'Full display format (e.g., "Question 1", "1(a)(i)")',
+    section VARCHAR(10) DEFAULT 'A',
+    question_number VARCHAR(20) NOT NULL,
+    sub_question_label VARCHAR(20),
+    display_number VARCHAR(50),
     marks INT NOT NULL,
-    sub_marks VARCHAR(50) COMMENT 'For sub-questions (e.g., "2+3+5" for parts a,b,c)',
-    is_required BOOLEAN DEFAULT TRUE COMMENT 'Is this question compulsory?',
-    is_choice BOOLEAN DEFAULT FALSE COMMENT 'Part of a choice set (e.g., Answer any 3)',
-    choice_group VARCHAR(20) COMMENT 'Group identifier for choice questions',
-    sequence_order INT NOT NULL COMMENT 'Order questions appear on paper (1, 2, 3...)',
-    parent_question_id INT COMMENT 'For sub-questions, references parent question',
-    indentation_level INT DEFAULT 0 COMMENT '0=main, 1=sub (a,b,c), 2=sub-sub (i,ii,iii)',
-    option_order JSON COMMENT 'Shuffled order of MCQ options (array of indices like [2,0,3,1])',
-    notes TEXT COMMENT 'Internal notes about this question placement',
+    sub_marks VARCHAR(50),
+    is_required BOOLEAN DEFAULT TRUE,
+    is_choice BOOLEAN DEFAULT FALSE,
+    choice_group VARCHAR(20),
+    choice_instructions VARCHAR(255),
+    sequence_order INT NOT NULL,
+    parent_question_id INT,
+    indentation_level INT DEFAULT 0,
+    option_order JSON,
+    custom_instructions TEXT,
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (exam_paper_id) REFERENCES exam_papers(id) ON DELETE CASCADE,
     FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_question_id) REFERENCES exam_paper_questions(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_paper_section_seq (exam_paper_id, section, sequence_order),
-    UNIQUE KEY unique_question_per_section (exam_paper_id, question_id, section),
+    UNIQUE KEY unique_paper_section_seq
+        (exam_paper_id, section, sequence_order, parent_question_id),
+    UNIQUE KEY unique_question_per_parent
+        (exam_paper_id, question_id, parent_question_id),
     INDEX idx_exam_paper (exam_paper_id),
     INDEX idx_question (question_id),
+    INDEX idx_parent (parent_question_id),
     INDEX idx_section (section),
     INDEX idx_sequence (sequence_order),
-    INDEX idx_parent (parent_question_id),
-    INDEX idx_choice_group (choice_group)
+    INDEX idx_indentation (indentation_level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- =====================================================
 -- WORKFLOW & APPROVALS
@@ -479,6 +505,35 @@ GROUP BY ep.id, ep.paper_code, ep.status, ep.exam_type, ep.exam_date,
          c.code, c.title, ep.total_marks, ep.duration, ep.hod_approved_at,
          ep.print_quantity, d.name, col.name;
 
+-- View: Hierarchical Paper Questions
+CREATE VIEW vw_paper_questions_hierarchy AS
+SELECT 
+    epq.*,
+    q.question_text,
+    q.question_type,
+    q.difficulty_level,
+    q.bloom_taxonomy,
+    q.options,
+    c.code as course_code,
+    c.title as course_title,
+    su.name as study_unit_title,
+    CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
+    CONCAT(
+        'Q', epq.question_number,
+        CASE 
+            WHEN epq.sub_question_label IS NOT NULL 
+            THEN CONCAT('(', epq.sub_question_label, ')')
+            ELSE ''
+        END
+    ) as full_question_number
+FROM exam_paper_questions epq
+JOIN questions q ON epq.question_id = q.id
+JOIN exam_papers ep ON epq.exam_paper_id = ep.id
+JOIN courses c ON ep.course_id = c.id
+LEFT JOIN study_units su ON q.study_unit_id = su.id
+LEFT JOIN users u ON q.created_by = u.id
+ORDER BY epq.exam_paper_id, epq.section, epq.sequence_order, epq.indentation_level;
+
 -- View: Lecturer permissions summary
 CREATE VIEW lecturer_permissions_summary AS
 SELECT 
@@ -557,6 +612,20 @@ DELIMITER //
 -- Trigger: Update exam paper total marks when questions are added/updated
 CREATE TRIGGER update_paper_total_marks
 AFTER INSERT ON exam_paper_questions
+FOR EACH ROW
+BEGIN
+    UPDATE exam_papers 
+    SET total_marks = (
+        SELECT COALESCE(SUM(marks), 0) 
+        FROM exam_paper_questions 
+        WHERE exam_paper_id = NEW.exam_paper_id
+    )
+    WHERE id = NEW.exam_paper_id;
+END//
+
+-- Trigger: Update total marks when question is updated
+CREATE TRIGGER update_paper_total_marks_on_update
+AFTER UPDATE ON exam_paper_questions
 FOR EACH ROW
 BEGIN
     UPDATE exam_papers 
@@ -686,6 +755,58 @@ END//
 DELIMITER ;
 
 -- =====================================================
+-- SUB-QUESTIONS FEATURE DOCUMENTATION
+-- =====================================================
+
+/*
+SUB-QUESTIONS FEATURE:
+
+The exam_paper_questions table now supports hierarchical questions with unlimited nesting.
+
+STRUCTURE:
+- Main Question (indentation_level = 0)
+  - Sub-question (a) (indentation_level = 1)
+  - Sub-question (b) (indentation_level = 1)
+    - Sub-sub-question (i) (indentation_level = 2)
+    - Sub-sub-question (ii) (indentation_level = 2)
+  - Sub-question (c) (indentation_level = 1)
+
+EXAMPLE:
+1. Explain database normalization (15 marks)
+   a) Define 1NF (3 marks)
+   b) Define 2NF (4 marks)
+      i) Give an example (2 marks)
+      ii) Explain benefits (2 marks)
+   c) Define 3NF (4 marks)
+
+KEY FIELDS:
+- parent_question_id: Links to parent (NULL for main questions)
+- sub_question_label: 'a', 'b', 'c' or 'i', 'ii', 'iii'
+- display_number: Full format like "1", "1(a)", "1(a)(i)"
+- indentation_level: 0 (main), 1 (sub), 2 (sub-sub), etc.
+- sequence_order: Order within same parent
+- sub_marks: Mark distribution like "2+3+5"
+
+CASCADE DELETE:
+When a parent question is deleted, all its children are automatically removed.
+
+API USAGE:
+POST /api/exam-papers/[paperId]/questions
+{
+  "question_id": 123,
+  "marks": 5,
+  "section": "A",
+  "parent_question_id": 456  // For sub-questions
+}
+
+AUTO-NUMBERING:
+The system automatically generates:
+- question_number: Main question number
+- sub_question_label: Auto-generated (a, b, c or i, ii, iii)
+- display_number: Combined display format
+*/
+
+-- =====================================================
 -- ROLE-BASED DOCUMENTATION
 -- =====================================================
 
@@ -725,15 +846,50 @@ ROLE DEFINITIONS:
 
 WORKFLOW:
 1. Lecturer creates paper (draft)
-2. Lecturer submits paper → status: 'submitted'
-3. HOD reviews → status: 'hod_review'
-4. HOD approves → status: 'hod_approved' → status: 'ready_for_print'
-5. Exam Master prints → status: 'printing' → 'printed'
-6. Paper published → status: 'published'
+2. Lecturer adds questions and sub-questions
+3. Lecturer submits paper → status: 'submitted'
+4. HOD reviews → status: 'hod_review'
+5. HOD approves → status: 'hod_approved' → status: 'ready_for_print'
+6. Exam Master prints → status: 'printing' → 'printed'
+7. Paper published → status: 'published'
 
 ALTERNATIVE PATH:
 - HOD rejects → status: 'hod_rejected' → back to Lecturer for revision
 - Dean can oversee and provide feedback at any stage
+*/
+
+-- =====================================================
+-- INDEXES FOR PERFORMANCE
+-- =====================================================
+
+/*
+KEY INDEXES ADDED FOR SUB-QUESTIONS:
+
+1. idx_parent - Fast lookup of children
+2. idx_paper_section - Common query pattern
+3. idx_indentation - For filtering by level
+4. unique_paper_section_seq - Ensures order integrity with parents
+
+QUERY OPTIMIZATION EXAMPLES:
+
+-- Get all questions for a paper (hierarchical)
+SELECT * FROM exam_paper_questions
+WHERE exam_paper_id = ?
+ORDER BY section, sequence_order, indentation_level;
+
+-- Get only main questions
+SELECT * FROM exam_paper_questions
+WHERE exam_paper_id = ? AND parent_question_id IS NULL
+ORDER BY section, sequence_order;
+
+-- Get children of a question
+SELECT * FROM exam_paper_questions
+WHERE parent_question_id = ?
+ORDER BY sequence_order;
+
+-- Get question hierarchy using view
+SELECT * FROM vw_paper_questions_hierarchy
+WHERE exam_paper_id = ?;
 */
 
 -- =====================================================

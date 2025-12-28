@@ -32,6 +32,7 @@ export default function EditExamPaperPage() {
     exam_date: '',
     duration: 60,
     instructions: '',
+    footer_text: '',
   });
 
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function EditExamPaperPage() {
         exam_date: paper.exam_date ? paper.exam_date.split('T')[0] : '',
         duration: paper.duration || 60,
         instructions: paper.instructions || '',
+        footer_text: paper.footer_text || '',
       });
 
       // Set selected programmes if they exist
@@ -376,6 +378,28 @@ export default function EditExamPaperPage() {
               placeholder="Enter exam instructions..."
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Leave empty to use default instructions
+            </p>
+          </div>
+
+          {/* Custom Footer Text */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Custom Footer Text
+            </label>
+            <input
+              type="text"
+              name="footer_text"
+              value={formData.footer_text}
+              onChange={handleChange}
+              placeholder="*** END OF EXAMINATION ***"
+              maxLength={100}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Leave empty to use default: &quot;*** END OF EXAMINATION ***&quot;
+            </p>
           </div>
 
           {/* Submit Button */}
