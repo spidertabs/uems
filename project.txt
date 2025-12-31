@@ -90,37 +90,37 @@ NOTE: Dont generate files that I have ...I already have my data in my database
 │   │   │       └── page.tsx
 │   │   │
 │   │   ├── 📂 courses/                             # Courses directly under app
-│   │   │   ├── 📜 page.tsx                        # Courses list
+│   │   │   ├── 📜 page.tsx                         # Courses list
 │   │   │   ├── 📂 create/
-│   │   │   │   └── 📜 page.tsx                # Create course
+│   │   │   │   └── 📜 page.tsx                     # Create course
 │   │   │   ├── 📂 import/
-│   │   │   │   └── 📜 page.tsx                # Import courses CSV/Excel
+│   │   │   │   └── 📜 page.tsx                     # Import courses CSV/Excel
 │   │   │   ├── 📂 edit/
 │   │   │   │   └── 📂 [id]/
-│   │   │   │       └── 📜 page.tsx            # Edit course
-│   │   │   └── 📂 [id]/                       # Course details
-│   │   │       ├── 📜 page.tsx                # View course details
-│   │   │       └── 📂 study-units/            # Nested under a course
-│   │   │           ├── 📜 page.tsx            # Study units list
+│   │   │   │       └── 📜 page.tsx                 # Edit course
+│   │   │   └── 📂 [id]/                            # Course details
+│   │   │       ├── 📜 page.tsx                     # View course details
+│   │   │       └── 📂 study-units/                 # Nested under a course
+│   │   │           ├── 📜 page.tsx                 # Study units list
 │   │   │           ├── 📂 create/
-│   │   │           │   └── 📜 page.tsx        # Create study unit
-│   │   │           └── 📂 [unitId]/           # Study unit details
-│   │   │               ├── 📜 page.tsx        # View study unit
+│   │   │           │   └── 📜 page.tsx             # Create study unit
+│   │   │           └── 📂 [unitId]/                # Study unit details
+│   │   │               ├── 📜 page.tsx             # View study unit
 │   │   │               └── 📂 edit/
-│   │   │                   └── 📜 page.tsx    # Edit study unit
+│   │   │                   └── 📜 page.tsx         # Edit study unit
 │   │   │
 │   │   ├── 📂 approvals/                           # Approvals directly under app
 │   │   │   └── 📜 page.tsx
 │   │   │
 │   │   ├── 📂 notifications/                       # ⭐ Inbox / Outbox / Feedback
 │   │   │   ├── 📂 inbox/
-│   │   │   │   └── page.tsx                     # Papers waiting for action
+│   │   │   │   └── page.tsx                        # Papers waiting for action
 │   │   │   ├── 📂 outbox/
-│   │   │   │   └── page.tsx                     # Papers user submitted
+│   │   │   │   └── page.tsx                        # Papers user submitted
 │   │   │   ├── 📂 feedback/
-│   │   │   │   └── page.tsx                     # Returned papers + comments
+│   │   │   │   └── page.tsx                        # Returned papers + comments
 │   │   │   └── 📂 history/
-│   │   │       └── page.tsx                     # Audit logs + timeline
+│   │   │       └── page.tsx                        # Audit logs + timeline
 │   │   │
 │   │   ├── 📂 profile/                             # Profile directly under app
 │   │   │   └── page.tsx
@@ -146,7 +146,7 @@ NOTE: Dont generate files that I have ...I already have my data in my database
 │   │   │   ├── 📂 exam-papers/
 │   │   │   │   ├── route.ts
 │   │   │   │   ├── create/route.ts
-│   │   │   │   └── [paperId]/                    # CHANGED: id → paperId for consistency
+│   │   │   │   └── [paperId]/                      # CHANGED: id → paperId for consistency
 │   │   │   │       ├── route.ts
 │   │   │   │       ├── submit/route.ts
 │   │   │   │       └── approve/route.ts

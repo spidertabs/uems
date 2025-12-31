@@ -349,13 +349,13 @@ export default function PreviewExamPaperPage() {
         style={{ marginLeft: isMainQuestion ? '0px' : `${baseIndent}px` }}
       >
         <div className="flex items-start">
-          <span className="mr-3 font-bold text-gray-900 dark:text-white print:text-gray-900 whitespace-nowrap">
+          <span className="mr-3 font-bold text-gray-900 dark:text-white print:text-black whitespace-nowrap">
             {displayNum}.
           </span>
           <div className="flex-1">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <p className="text-justify text-gray-900 dark:text-white print:text-gray-900">
+                <p className="text-justify text-gray-900 dark:text-white print:text-black">
                   {question.question_text}
                 </p>
 
@@ -363,7 +363,7 @@ export default function PreviewExamPaperPage() {
                 {question.question_type === 'multiple_choice' &&
                   renderMCQOptions(question.shuffledOptions, indentLevel)}
               </div>
-              <span className="flex-shrink-0 font-semibold text-gray-900 dark:text-white print:text-gray-900 whitespace-nowrap">
+              <span className="flex-shrink-0 font-semibold text-gray-900 dark:text-white print:text-black whitespace-nowrap">
                 [{question.marks} mark{question.marks !== 1 ? 's' : ''}]
               </span>
             </div>
@@ -433,13 +433,13 @@ export default function PreviewExamPaperPage() {
 
       {/* Paper Preview - A4 Size */}
       <div
-        className="mx-auto my-8 bg-white p-10 shadow-lg dark:bg-gray-800 print:m-0 print:bg-white print:shadow-none"
+        className="mx-auto my-8 bg-white p-10 shadow-lg dark:bg-gray-800 print:m-0 print:p-0 print:bg-white print:shadow-none print:w-full"
         style={{ width: '210mm', minHeight: '297mm' }}
       >
         {/* Header with KIU Logo and College */}
-        <div className="mb-2 border-gray-900 pb-4 print:border-gray-900">
+        <div className="mb-2 pb-4">
           {/* KIU Logo - Centered - Dynamic based on theme */}
-          <div className="mb-4 flex justify-center">
+          <div className="mb-4 flex justify-center bg-white dark:bg-gray-800 print:bg-white">
             <img
               src={
                 isDarkMode
@@ -458,23 +458,23 @@ export default function PreviewExamPaperPage() {
           </div>
 
           <div className="text-center">
-            <h1 className="mb-2 text-2xl font-bold uppercase text-gray-900 dark:text-white print:text-gray-900">
+            <h1 className="mb-2 text-2xl font-bold uppercase text-gray-900 dark:text-white print:text-black">
               Kampala International University
             </h1>
 
             {/* College Name - Prominent Display */}
             {paper.college_name && (
               <div className="mb-3 mt-2">
-                <p className="text-lg font-bold uppercase text-gray-800 dark:text-gray-200 print:text-gray-800">
+                <p className="text-lg font-bold uppercase text-gray-800 dark:text-gray-200 print:text-black">
                   {paper.college_name}
                 </p>
               </div>
             )}
 
-            <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white print:text-gray-900">
+            <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white print:text-black">
               {paper.exam_type} EXAMINATION {paper.academic_year}
             </h2>
-            <p className="font-semibold text-gray-900 dark:text-white print:text-gray-900">
+            <p className="font-semibold text-gray-900 dark:text-white print:text-black">
               Time Allowed: {Math.floor(paper.duration / 60)} hour
               {Math.floor(paper.duration / 60) !== 1 ? 's' : ''}
               {paper.duration % 60 > 0 && ` ${paper.duration % 60} minutes`}
@@ -483,37 +483,37 @@ export default function PreviewExamPaperPage() {
         </div>
 
         {/* Course Information */}
-        <div className="mb-6 rounded-lg border-gray-300 px-4 py-3 dark:border-gray-600 print:border-gray-300">
+        <div className="mb-6 px-4 py-3 print:border-0">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700">
+              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-black">
                 Course Code:
               </p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">
+              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-black">
                 {paper.course_code}
               </p>
             </div>
             <div>
-              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700">
+              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-black">
                 Course Title:
               </p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">
+              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-black">
                 {paper.course_title}
               </p>
             </div>
             <div>
-              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700">
+              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-black">
                 Date:
               </p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">
+              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-black">
                 {formatDate(paper.exam_date)}
               </p>
             </div>
             <div>
-              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-gray-700">
+              <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-black">
                 Programme(s):
               </p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-gray-900">
+              <p className="text-lg font-bold text-gray-900 dark:text-white print:text-black">
                 {programmes.length > 0
                   ? programmes.map((p) => p.code).join(', ')
                   : '_______________'}
@@ -526,17 +526,17 @@ export default function PreviewExamPaperPage() {
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="mb-6 rounded-lg bg-gray-50 p-4 dark:bg-gray-700 print:bg-gray-50">
-          <p className="mb-2 font-bold uppercase text-gray-900 dark:text-white print:text-gray-900">
+        {/* Instructions - UPDATED WITH GREY BACKGROUND */}
+        <div className="mb-6 p-4 print:p-4 print:bg-gray-100 bg-gray-100 dark:bg-gray-700 rounded-lg">
+          <p className="mb-2 font-bold uppercase text-gray-900 dark:text-white print:text-black">
             Instructions to Candidates:
           </p>
           {paper.instructions ? (
-            <div className="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200 print:text-gray-800">
+            <div className="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200 print:text-black">
               {paper.instructions}
             </div>
           ) : (
-            <ul className="list-inside list-disc space-y-1 text-sm text-gray-800 dark:text-gray-200 print:text-gray-800">
+            <ul className="list-inside list-disc space-y-1 text-sm text-gray-800 dark:text-gray-200 print:text-black">
               <li>All answers and Rough work should be booklet provided.</li>
               <li>Write clearly and legibly.</li>
               <li>Show all working for problem-solving questions.</li>
@@ -548,8 +548,8 @@ export default function PreviewExamPaperPage() {
         {/* Questions by Section */}
         <div className="space-y-8">
           {Object.entries(sections).length === 0 ? (
-            <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-              <p className="text-gray-600 dark:text-gray-400 print:text-gray-600">
+            <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center print:border-black">
+              <p className="text-gray-600 dark:text-gray-400 print:text-black">
                 No questions available
               </p>
             </div>
@@ -565,8 +565,8 @@ export default function PreviewExamPaperPage() {
                 
                 return (
                   <div key={section} className="break-inside-avoid">
-                    <div className="mb-4 border-b-2 border-gray-700 pb-2 dark:border-gray-300 print:border-gray-700">
-                      <h3 className="text-lg font-bold uppercase text-gray-900 dark:text-white print:text-gray-900">
+                    <div className="mb-4 border-b-2 border-gray-700 pb-2 dark:border-gray-300 print:border-black">
+                      <h3 className="text-lg font-bold uppercase text-gray-900 dark:text-white print:text-black">
                         Section {section}
                         <span className="ml-4 text-sm font-normal">
                           ({totalMarks} Marks)
@@ -610,33 +610,75 @@ export default function PreviewExamPaperPage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-12 border-t-2 border-gray-900 pt-4 text-center text-xs text-gray-700 dark:border-gray-300 dark:text-gray-400 print:border-gray-900 print:text-gray-700">
+        <div className="mt-12 border-t-2 border-gray-900 pt-4 text-center text-xs text-gray-700 dark:border-gray-300 dark:text-gray-400 print:border-black print:text-black">
           <p className="font-bold">
-            {paper.footer_text || '*** END OF EXAMINATION ***'}
+            {paper.footer_text || ' END '}
           </p>
-          <p className="mt-2">{paper.paper_code} | Page 1 of 1</p>
+          <p className="mt-2">{paper.paper_code}</p>
         </div>
       </div>
 
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
-          /* Hide non-print elements */
-          .no-print {
+          /* Hide ALL non-essential elements */
+          .no-print,
+          nav,
+          header,
+          aside,
+          [role="navigation"],
+          [role="banner"],
+          button:not(.print-keep) {
             display: none !important;
           }
 
-          /* Reset body */
+          /* Reset body and html */
+          html,
           body {
-            margin: 0;
-            padding: 0;
+            margin: 0 !important;
+            padding: 0 !important;
             background: white !important;
+            width: 100% !important;
+            height: auto !important;
+          }
+
+          /* Remove all padding/margin from main containers */
+          body > div,
+          #__next,
+          main {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          /* Reset the page container - remove left padding */
+          .lg\\:pl-64 {
+            padding-left: 0 !important;
           }
 
           /* Page setup */
           @page {
             size: A4;
-            margin: 20mm;
+            margin: 15mm 20mm;
+          }
+
+          /* Remove fixed width and adjust for print */
+          .mx-auto {
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+
+          /* Reset inline styles for print */
+          [style*="width: 210mm"] {
+            width: 100% !important;
+          }
+
+          /* Adjust padding for print */
+          .print\\:p-0 {
+            padding: 0 !important;
+          }
+
+          .print\\:w-full {
+            width: 100% !important;
           }
 
           /* Prevent breaks inside elements */
@@ -645,55 +687,57 @@ export default function PreviewExamPaperPage() {
             break-inside: avoid;
           }
 
-          /* Force light mode colors for print */
-          .dark\\:bg-gray-800,
-          .dark\\:bg-gray-700 {
+          /* Force all backgrounds to white for print */
+          * {
             background-color: white !important;
+            background-image: none !important;
           }
 
+          /* Force all text to black for print - override ALL color classes */
+          *,
           .dark\\:text-white,
           .dark\\:text-gray-200,
-          .dark\\:text-gray-300 {
-            color: black !important;
-          }
-
-          .dark\\:border-gray-600,
-          .dark\\:border-gray-500,
-          .dark\\:border-gray-300 {
-            border-color: #d1d5db !important;
-          }
-
-          /* Ensure black text for print */
+          .dark\\:text-gray-300,
+          .dark\\:text-gray-400,
+          .dark\\:text-gray-500,
+          .text-gray-900,
+          .text-gray-800,
+          .text-gray-700,
+          .text-gray-600,
           .print-text-black,
+          .print\\:text-black,
           .print\\:text-gray-900,
           .print\\:text-gray-800,
-          .print\\:text-gray-700 {
+          .print\\:text-gray-700,
+          .print\\:text-gray-600 {
             color: black !important;
           }
 
-          /* Print-specific styles */
+          /* Force all borders to black - no gray borders */
+          *[class*="border"],
+          .dark\\:border-gray-600,
+          .dark\\:border-gray-500,
+          .dark\\:border-gray-300,
+          .border-gray-700,
+          .border-gray-300,
+          .print\\:border-black,
+          .print\\:border-gray-900,
+          .print\\:border-gray-700 {
+            border-color: black !important;
+          }
+
+          /* Remove any box shadows */
+          * {
+            box-shadow: none !important;
+          }
+
+          /* Print-specific overrides */
           .print\\:bg-white {
             background-color: white !important;
           }
-
-          .print\\:bg-gray-50 {
-            background-color: #f9fafb !important;
-          }
-
-          .print\\:border-gray-300 {
-            border-color: #d1d5db !important;
-          }
-
-          .print\\:border-gray-400 {
-            border-color: #9ca3af !important;
-          }
-
-          .print\\:border-gray-700 {
-            border-color: #374151 !important;
-          }
-
-          .print\\:border-gray-900 {
-            border-color: #111827 !important;
+          
+          .print\\:bg-gray-100 {
+            background-color: #f3f4f6 !important;
           }
 
           .print\\:shadow-none {
@@ -710,6 +754,60 @@ export default function PreviewExamPaperPage() {
 
           .print\\:hidden {
             display: none !important;
+          }
+
+          .print\\:border-0 {
+            border: 0 !important;
+          }
+
+          /* Ensure paper container takes full width */
+          .mx-auto {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+          }
+
+          .my-8 {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+          }
+
+          /* Adjust text sizes for better fit */
+          body {
+            font-size: 11pt !important;
+            line-height: 1.4 !important;
+          }
+
+          h1 {
+            font-size: 18pt !important;
+          }
+
+          h2 {
+            font-size: 16pt !important;
+          }
+
+          h3 {
+            font-size: 14pt !important;
+          }
+
+          /* Reduce spacing for print */
+          .space-y-8 > * + * {
+            margin-top: 1.5rem !important;
+          }
+
+          .space-y-6 > * + * {
+            margin-top: 1rem !important;
+          }
+
+          .mb-6 {
+            margin-bottom: 1rem !important;
+          }
+
+          .mb-4 {
+            margin-bottom: 0.75rem !important;
+          }
+
+          .mt-12 {
+            margin-top: 2rem !important;
           }
 
           /* Print quality */
