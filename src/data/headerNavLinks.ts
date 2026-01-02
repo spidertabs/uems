@@ -13,7 +13,7 @@ const headerNavLinks: NavLink[] = [
     emoji: '📊',
     roles: ['lecturer', 'hod', 'exam_master', 'admin'],
   },
-    {
+  {
     href: '/profile',
     title: '👤 Profile',
     emoji: '👤',
@@ -43,18 +43,29 @@ const headerNavLinks: NavLink[] = [
     roles: ['admin', 'hod'],
   },
   {
+    title: '🎓 Programmes',
+    href: '/programmes',
+    emoji: '🎓',
+    roles: ['admin', 'hod'],
+  },
+  {
     title: '📬 Notifications',
     href: '/notifications/inbox',
     emoji: '📬',
     roles: ['lecturer', 'hod', 'exam_master', 'admin'],
   },
-    {
+  {
     href: '/reports',
     title: '📊 Reports',
     emoji: '📊',
     roles: ['hod', 'dean', 'exam_master', 'admin'],
   },
-
+  {
+    href: '/settings',
+    title: '⚙️ Settings',
+    emoji: '⚙️',
+    roles: ['lecturer', 'hod', 'dean', 'exam_master', 'admin'],
+  },
 ];
 
 export default headerNavLinks;

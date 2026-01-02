@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/api/exam-papers/[paperId]/questions/route.ts
+// FIXED: Per-section numbering + explicit sub-question capability control
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
@@ -75,6 +77,7 @@ export async function GET(
       parent_question_number: pq.parent_question_number,
       parent_display_number: pq.parent_display_number,
       option_order: pq.option_order ? (typeof pq.option_order === 'string' ? JSON.parse(pq.option_order) : pq.option_order) : null,
+      can_have_sub_questions: pq.can_have_sub_questions ?? true,
       question: {
         id: pq.question_id,
         question_text: pq.question_text,
@@ -127,7 +130,8 @@ export async function POST(
       option_order, 
       parent_question_id, 
       indentation_level,
-      is_sub_question 
+      is_sub_question,
+      can_have_sub_questions = true // NEW: User can specify if question should allow sub-questions
     } = body;
 
     console.log('📝 POST Request - Adding question to paper:', { 
@@ -138,7 +142,8 @@ export async function POST(
       option_order: option_order ? 'Yes' : 'No',
       parent_question_id: parent_question_id || 'None (main question)',
       indentation_level: indentation_level || 0,
-      is_sub_question: is_sub_question || false
+      is_sub_question: is_sub_question || false,
+      can_have_sub_questions: can_have_sub_questions
     });
 
     // Validation
@@ -150,10 +155,15 @@ export async function POST(
       );
     }
 
-    // If this is a sub-question, validate parent exists
+    // If this is a sub-question, validate parent exists and get the root parent
+    let rootParentId = parent_question_id;
+    let rootQuestionNumber = null;
+    let parentSection = null;
+    let isFirstSubQuestion = false;
+    
     if (parent_question_id) {
       const parentExists = await query<any[]>(
-        'SELECT id, section, sequence_order, question_number FROM exam_paper_questions WHERE id = ? AND exam_paper_id = ?',
+        'SELECT id, section, sequence_order, question_number, display_number, parent_question_id, sub_question_label, can_have_sub_questions FROM exam_paper_questions WHERE id = ? AND exam_paper_id = ?',
         [parent_question_id, paperId]
       );
 
@@ -165,14 +175,50 @@ export async function POST(
         );
       }
 
-      console.log('✅ Parent question found:', parentExists[0]);
-      
-      // Sub-questions MUST inherit parent's section - override whatever was sent
-      if (parentExists[0].section) {
-        const inheritedSection = parentExists[0].section;
-        console.log(`📌 Sub-question inheriting parent's section: ${inheritedSection} (overriding sent section: ${section || 'A'})`);
-        // We'll use this inherited section later
+      // Check if parent allows sub-questions
+      if (parentExists[0].can_have_sub_questions === false || parentExists[0].can_have_sub_questions === 0) {
+        console.error('❌ Parent question does not allow sub-questions');
+        return NextResponse.json(
+          { error: 'This question cannot have sub-questions. The creator disabled this option.' },
+          { status: 400 }
+        );
       }
+
+      parentSection = parentExists[0].section;
+      
+      // Find the root parent (main question) by traversing up
+      let currentParentId = parent_question_id;
+      let depth = 0;
+      const maxDepth = 10;
+      
+      while (depth < maxDepth) {
+        const checkParent = await query<any[]>(
+          'SELECT id, parent_question_id, question_number FROM exam_paper_questions WHERE id = ?',
+          [currentParentId]
+        );
+        
+        if (checkParent.length === 0) break;
+        
+        if (!checkParent[0].parent_question_id) {
+          rootParentId = checkParent[0].id;
+          rootQuestionNumber = checkParent[0].question_number;
+          break;
+        }
+        
+        currentParentId = checkParent[0].parent_question_id;
+        depth++;
+      }
+      
+      // Check if root parent already has a sub_question_label
+      const rootParentInfo = await query<any[]>(
+        'SELECT sub_question_label FROM exam_paper_questions WHERE id = ?',
+        [rootParentId]
+      );
+      
+      // If root parent doesn't have a sub_question_label, this is the first sub-question
+      isFirstSubQuestion = !rootParentInfo[0]?.sub_question_label;
+      
+      console.log('✅ Parent question found. Root parent ID:', rootParentId, 'Root number:', rootQuestionNumber, 'Is first sub-question:', isFirstSubQuestion);
     }
 
     // Check if question exists
@@ -209,7 +255,7 @@ export async function POST(
       console.log('✅ Question type is valid for sub-question:', questionType);
     }
 
-    // Check if question is already added to this paper (allow if it's a sub-question in different contexts)
+    // Check if question is already added to this paper
     const existing = await query<any[]>(
       'SELECT id, parent_question_id FROM exam_paper_questions WHERE exam_paper_id = ? AND question_id = ? AND (parent_question_id <=> ?)',
       [paperId, question_id, parent_question_id || null]
@@ -225,19 +271,20 @@ export async function POST(
       );
     }
 
-    // Get the next sequence_order for the specified section
+    // Get the next sequence_order and section
     let sectionValue: string;
     let nextSequenceOrder: number;
+    let mainQuestionNumber: number;
     
     if (parent_question_id) {
-      // For sub-questions, inherit parent's section but get their OWN sequence order
+      // For sub-questions, inherit parent's section
       const parentInfo = await query<any[]>(
-        'SELECT section, sequence_order FROM exam_paper_questions WHERE id = ?',
+        'SELECT section FROM exam_paper_questions WHERE id = ?',
         [parent_question_id]
       );
       
       if (parentInfo.length === 0) {
-        console.error('❌ Parent not found when fetching section/sequence');
+        console.error('❌ Parent not found when fetching section');
         return NextResponse.json(
           { error: 'Parent question not found' },
           { status: 404 }
@@ -246,23 +293,37 @@ export async function POST(
       
       sectionValue = parentInfo[0].section;
       
-      // FIXED: Get the next sequence_order for sub-questions under this parent
-      // Sub-questions have their own sequence numbering (1, 2, 3...) within the parent
+      // Get the next sequence_order for sub-questions under the immediate parent
       const maxSubSeq = await query<any[]>(
         'SELECT COALESCE(MAX(sequence_order), 0) + 1 as next_seq FROM exam_paper_questions WHERE exam_paper_id = ? AND parent_question_id = ?',
         [paperId, parent_question_id]
       );
       nextSequenceOrder = maxSubSeq[0]?.next_seq || 1;
       
+      // Use root question number - extract just the numeric part
+      const numMatch = String(rootQuestionNumber).match(/^(\d+)/);
+      mainQuestionNumber = numMatch ? parseInt(numMatch[1]) : 1;
+      
       console.log('📌 Sub-question assigned:', { 
         section: sectionValue, 
         sequence_order: nextSequenceOrder,
         parent_id: parent_question_id,
-        note: 'Sub-questions have their own sequence within parent'
+        root_parent_id: rootParentId,
+        main_question_number: mainQuestionNumber,
+        is_first_sub: isFirstSubQuestion
       });
     } else {
-      // For main questions, use provided section and get next sequence
+      // For main questions, use provided section
       sectionValue = section || 'A';
+      
+      // Count main questions in THIS SECTION (numbering restarts per section)
+      const maxMainQ = await query<any[]>(
+        'SELECT COALESCE(MAX(CAST(question_number AS UNSIGNED)), 0) + 1 as next_num FROM exam_paper_questions WHERE exam_paper_id = ? AND section = ? AND parent_question_id IS NULL',
+        [paperId, sectionValue]
+      );
+      mainQuestionNumber = maxMainQ[0]?.next_num || 1;
+      
+      // Get sequence order (for ordering within section)
       const maxSeq = await query<any[]>(
         'SELECT COALESCE(MAX(sequence_order), 0) + 1 as next_seq FROM exam_paper_questions WHERE exam_paper_id = ? AND section = ? AND parent_question_id IS NULL',
         [paperId, sectionValue]
@@ -271,61 +332,141 @@ export async function POST(
       
       console.log('📌 Main question assigned:', { 
         section: sectionValue, 
-        sequence_order: nextSequenceOrder 
+        sequence_order: nextSequenceOrder,
+        question_number: mainQuestionNumber,
+        note: 'Numbering restarts per section'
       });
     }
 
-    console.log('🔢 Final values - Section:', sectionValue, 'Sequence:', nextSequenceOrder);
-
     // Generate question number based on parent and indentation level
-    let questionNumber = String(nextSequenceOrder);
+    let questionNumber = String(mainQuestionNumber);
     let displayNumber = questionNumber;
     let subQuestionLabel = null;
 
     if (parent_question_id) {
-      // Get parent's question number
-      const parentInfo = await query<any[]>(
-        'SELECT question_number, indentation_level FROM exam_paper_questions WHERE id = ?',
-        [parent_question_id]
-      );
-      
-      if (parentInfo.length > 0) {
-        const parentNumber = parentInfo[0].question_number;
-        const level = indentation_level || 1;
+      const level = indentation_level || 1;
 
-        // Count existing sub-questions at this level under this parent
-        const subQuestionCount = await query<any[]>(
-          'SELECT COUNT(*) as count FROM exam_paper_questions WHERE parent_question_id = ? AND indentation_level = ?',
-          [parent_question_id, level]
+      // NEW LOGIC: If this is the first sub-question, update parent to be (a)
+      if (isFirstSubQuestion && level === 1) {
+        console.log('🔄 This is the first sub-question. Updating parent to be (a)...');
+        
+        // Update the parent question to have sub_question_label = 'a'
+        await query(
+          `UPDATE exam_paper_questions 
+           SET sub_question_label = 'a',
+               question_number = CONCAT(?, 'a'),
+               display_number = CONCAT(?, '(a)'),
+               indentation_level = 1
+           WHERE id = ?`,
+          [mainQuestionNumber, mainQuestionNumber, rootParentId]
         );
-        const subIndex = (subQuestionCount[0]?.count || 0) + 1;
-
-        // Generate numbering based on indentation level
+        
+        console.log('✅ Parent updated to (a)');
+        
+        // This new sub-question becomes (b)
+        const letter = 'b';
+        subQuestionLabel = letter;
+        questionNumber = `${mainQuestionNumber}${letter}`;
+        displayNumber = `${mainQuestionNumber}(${letter})`;
+      } else {
+        // Count existing sub-questions at this level
         if (level === 1) {
-          // Level 1: a, b, c, d...
-          const letter = String.fromCharCode(96 + subIndex); // 97 is 'a'
+          // Level 1: Count all existing level 1 items INCLUDING the root parent if it has a label
+          // This ensures we get a, b, c, d... sequence without gaps
+          const countQuery = await query<any[]>(
+            `SELECT sub_question_label
+             FROM exam_paper_questions 
+             WHERE exam_paper_id = ?
+             AND indentation_level = 1
+             AND sub_question_label IS NOT NULL
+             AND (id = ? OR parent_question_id = ?)
+             ORDER BY sub_question_label`,
+            [paperId, rootParentId, rootParentId]
+          );
+          
+          // Find the highest letter used
+          let maxIndex = 0;
+          countQuery.forEach(row => {
+            const label = row.sub_question_label;
+            if (label && label.length === 1) {
+              const charCode = label.charCodeAt(0) - 96; // 'a' = 1, 'b' = 2, etc.
+              if (charCode > maxIndex) {
+                maxIndex = charCode;
+              }
+            }
+          });
+          
+          const subIndex = maxIndex + 1;
+          const letter = String.fromCharCode(96 + subIndex);
           subQuestionLabel = letter;
-          questionNumber = `${parentNumber}${letter}`;
-          displayNumber = `${parentNumber}(${letter})`;
+          questionNumber = `${mainQuestionNumber}${letter}`;
+          displayNumber = `${mainQuestionNumber}(${letter})`;
+          
+          console.log('📊 Level 1 existing labels:', countQuery.map(r => r.sub_question_label), 'Max index:', maxIndex, 'New index:', subIndex, 'Letter:', letter);
         } else if (level === 2) {
           // Level 2: i, ii, iii, iv...
-          const roman = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'];
+          const roman = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x', 
+                         'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx'];
+          
+          // Get immediate parent's letter
+          const immediateParent = await query<any[]>(
+            'SELECT sub_question_label FROM exam_paper_questions WHERE id = ?',
+            [parent_question_id]
+          );
+          const parentLetter = immediateParent[0]?.sub_question_label || '';
+          
+          // Count level 2 sub-questions under this immediate parent
+          const countQuery = await query<any[]>(
+            `SELECT COUNT(*) as count 
+             FROM exam_paper_questions 
+             WHERE exam_paper_id = ?
+             AND parent_question_id = ?
+             AND indentation_level = 2
+             AND sub_question_label IS NOT NULL`,
+            [paperId, parent_question_id]
+          );
+          
+          const existingCount = countQuery[0]?.count || 0;
+          const subIndex = existingCount + 1;
+          
           const romanNumeral = roman[subIndex - 1] || `(${subIndex})`;
           subQuestionLabel = romanNumeral;
-          questionNumber = `${parentNumber}${romanNumeral}`;
-          displayNumber = `${parentNumber}(${romanNumeral})`;
+          questionNumber = `${mainQuestionNumber}${parentLetter}${romanNumeral}`;
+          displayNumber = `${mainQuestionNumber}(${parentLetter})(${romanNumeral})`;
         } else {
           // Level 3+: numeric
+          const countQuery = await query<any[]>(
+            `SELECT COUNT(*) as count 
+             FROM exam_paper_questions 
+             WHERE exam_paper_id = ?
+             AND parent_question_id = ?
+             AND indentation_level = ?
+             AND sub_question_label IS NOT NULL`,
+            [paperId, parent_question_id, level]
+          );
+          
+          const existingCount = countQuery[0]?.count || 0;
+          const subIndex = existingCount + 1;
+          
           subQuestionLabel = String(subIndex);
-          questionNumber = `${parentNumber}.${subIndex}`;
+          questionNumber = `${mainQuestionNumber}.${subIndex}`;
           displayNumber = questionNumber;
         }
       }
+      
+      console.log('🔢 Sub-question numbering:', {
+        level,
+        label: subQuestionLabel,
+        display: displayNumber,
+        main_question: mainQuestionNumber,
+        root_parent: rootParentId,
+        is_first: isFirstSubQuestion
+      });
     }
 
     console.log('🔢 Generated question number:', questionNumber, 'Display:', displayNumber, 'Sub-label:', subQuestionLabel);
 
-    // Prepare option_order for storage (convert to JSON string if it's an array)
+    // Prepare option_order for storage
     let optionOrderValue = null;
     if (option_order && Array.isArray(option_order)) {
       optionOrderValue = JSON.stringify(option_order);
@@ -347,21 +488,23 @@ export async function POST(
         option_order,
         is_required,
         parent_question_id,
-        indentation_level
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        indentation_level,
+        can_have_sub_questions
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         paperId, 
         question_id, 
-        questionNumber,                // question_number (e.g., "2a", "3i")
-        displayNumber,                 // display_number (e.g., "2(a)", "3(i)")
-        subQuestionLabel,              // sub_question_label (e.g., "a", "i")
-        nextSequenceOrder,             // sequence_order (unique within parent or section)
-        marks || questions[0].marks,   // marks
-        sectionValue,                  // section (A, B, C, etc.)
-        optionOrderValue,              // option_order (JSON string or null)
-        1,                             // is_required
-        parent_question_id || null,    // parent_question_id
-        indentation_level || 0         // indentation_level
+        questionNumber,
+        displayNumber,
+        subQuestionLabel,
+        nextSequenceOrder,
+        marks || questions[0].marks,
+        sectionValue,
+        optionOrderValue,
+        1,
+        parent_question_id || null,
+        indentation_level || 0,
+        can_have_sub_questions ? 1 : 0
       ]
     );
 
@@ -387,7 +530,8 @@ export async function POST(
         display_number: displayNumber,
         sub_question_label: subQuestionLabel,
         parent_question_id: parent_question_id || null,
-        indentation_level: indentation_level || 0
+        indentation_level: indentation_level || 0,
+        can_have_sub_questions: can_have_sub_questions
       }
     };
 
@@ -422,10 +566,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get question_id from URL search params
     const { searchParams } = new URL(req.url);
     const questionId = searchParams.get('question_id');
-    const epqId = searchParams.get('epq_id'); // exam_paper_question id
+    const epqId = searchParams.get('epq_id');
 
     console.log('🗑️  DELETE Request - Removing question:', { paperId, questionId, epqId });
 
@@ -441,16 +584,13 @@ export async function DELETE(
     const whereParams: any[] = [paperId];
 
     if (epqId) {
-      // Delete by exam_paper_question id (more specific, good for sub-questions)
       whereClause += ' AND id = ?';
       whereParams.push(epqId);
     } else if (questionId) {
-      // Delete by question_id (legacy support)
       whereClause += ' AND question_id = ?';
       whereParams.push(questionId);
     }
 
-    // Check if the question is in this paper
     const existing = await query<any[]>(
       `SELECT id, question_id, section, parent_question_id FROM exam_paper_questions WHERE ${whereClause}`,
       whereParams
@@ -470,13 +610,14 @@ export async function DELETE(
 
     // Check if this question has sub-questions
     const subQuestions = await query<any[]>(
-      'SELECT id FROM exam_paper_questions WHERE parent_question_id = ?',
+      'SELECT id, question_id FROM exam_paper_questions WHERE parent_question_id = ?',
       [questionToDelete.id]
     );
 
     if (subQuestions.length > 0) {
       console.log('⚠️  Question has', subQuestions.length, 'sub-questions');
-      // Delete all sub-questions first (cascade)
+      
+      // Delete all sub-questions first
       await query(
         'DELETE FROM exam_paper_questions WHERE parent_question_id = ?',
         [questionToDelete.id]
@@ -485,27 +626,52 @@ export async function DELETE(
       
       // Decrement usage count for each sub-question
       for (const subQ of subQuestions) {
-        const subQDetails = await query<any[]>(
-          'SELECT question_id FROM exam_paper_questions WHERE id = ?',
-          [subQ.id]
+        await query(
+          'UPDATE questions SET usage_count = GREATEST(usage_count - 1, 0) WHERE id = ?',
+          [subQ.question_id]
         );
-        if (subQDetails.length > 0) {
-          await query(
-            'UPDATE questions SET usage_count = GREATEST(usage_count - 1, 0) WHERE id = ?',
-            [subQDetails[0].question_id]
-          );
+      }
+    }
+
+    // Check if deleting this will leave parent with no sub-questions
+    if (questionToDelete.parent_question_id) {
+      const remainingSiblings = await query<any[]>(
+        'SELECT COUNT(*) as count FROM exam_paper_questions WHERE parent_question_id = ? AND id != ?',
+        [questionToDelete.parent_question_id, questionToDelete.id]
+      );
+      
+      if (remainingSiblings[0].count === 0) {
+        // This was the last sub-question, revert parent back to main question format
+        const parentInfo = await query<any[]>(
+          'SELECT question_number FROM exam_paper_questions WHERE id = ?',
+          [questionToDelete.parent_question_id]
+        );
+        
+        if (parentInfo.length > 0) {
+          const mainNum = parentInfo[0].question_number.match(/^(\d+)/);
+          if (mainNum) {
+            await query(
+              `UPDATE exam_paper_questions 
+               SET sub_question_label = NULL,
+                   question_number = ?,
+                   display_number = ?
+               WHERE id = ?`,
+              [mainNum[1], mainNum[1], questionToDelete.parent_question_id]
+            );
+            console.log('✅ Parent reverted back to main question format');
+          }
         }
       }
     }
 
-    // Delete the question from the paper
+    // Delete the question
     console.log('💾 Deleting from database...');
     await query(
       `DELETE FROM exam_paper_questions WHERE ${whereClause}`,
       whereParams
     );
 
-    // Decrement question usage count
+    // Decrement usage count
     await query(
       'UPDATE questions SET usage_count = GREATEST(usage_count - 1, 0) WHERE id = ?',
       [questionToDelete.question_id]

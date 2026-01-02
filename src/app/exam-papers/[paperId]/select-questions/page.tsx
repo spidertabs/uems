@@ -30,12 +30,14 @@ interface SelectedQuestion {
   question_id: number;
   question_number: string;
   display_number?: string;
+  sub_question_label?: string | null;
   marks: number;
   section: string;
   parent_question_id?: number | null;
   indentation_level?: number;
   sequence_order: number;
   option_order?: number[] | null;
+  can_have_sub_questions?: boolean;
   question: Question;
 }
 
@@ -59,6 +61,9 @@ export default function SelectQuestionsPage() {
   // Section selection state
   const [selectedSection, setSelectedSection] = useState<Record<number, string>>({});
   const sections = ['A', 'B', 'C', 'D', 'E'];
+
+  // Sub-question capability toggle (NEW)
+  const [allowSubQuestions, setAllowSubQuestions] = useState<Record<number, boolean>>({});
 
   // Sub-question state
   const [showSubQuestionPrompt, setShowSubQuestionPrompt] = useState(false);
@@ -323,6 +328,7 @@ export default function SelectQuestionsPage() {
 
   useEffect(() => {
     const initialSections: Record<number, string> = { ...selectedSection };
+    const initialAllowSub: Record<number, boolean> = { ...allowSubQuestions };
     let hasChanges = false;
 
     availableQuestions.forEach((q: Question) => {
@@ -330,10 +336,16 @@ export default function SelectQuestionsPage() {
         initialSections[q.id] = 'A';
         hasChanges = true;
       }
+      // Default: allow sub-questions for eligible question types
+      if (initialAllowSub[q.id] === undefined) {
+        initialAllowSub[q.id] = canHaveSubQuestions(q.question_type);
+        hasChanges = true;
+      }
     });
 
     if (hasChanges) {
       setSelectedSection(initialSections);
+      setAllowSubQuestions(initialAllowSub);
     }
   }, [availableQuestions]);
 
@@ -363,10 +375,12 @@ export default function SelectQuestionsPage() {
         requestData.parent_question_id = parentQuestionId;
         requestData.indentation_level = indentationLevel || 1;
         // Section is inherited from parent - backend handles this
+        // Sub-questions don't have the can_have_sub_questions flag (only main questions)
       } else {
-        // Main question: use selected section
+        // Main question: use selected section and sub-question capability
         const section = selectedSection[question.id] || 'A';
         requestData.section = section;
+        requestData.can_have_sub_questions = allowSubQuestions[question.id] ?? true;
       }
 
       // Add option order for MCQs
@@ -390,7 +404,9 @@ export default function SelectQuestionsPage() {
         
         // Handle sub-question prompt for main questions only
         if (!parentQuestionId) {
-          if (canHaveSubQuestions(question.question_type)) {
+          // Check if user allowed sub-questions AND question type supports it
+          const userAllowedSub = allowSubQuestions[question.id] ?? true;
+          if (userAllowedSub && canHaveSubQuestions(question.question_type)) {
             // Fetch the newly added question to get its ID
             const selectedRes = await fetch(`/api/exam-papers/${paperId}/questions`);
             if (selectedRes.ok) {
@@ -723,29 +739,56 @@ export default function SelectQuestionsPage() {
                     </p>
                   </div>
                   
-                  <div className="flex items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                      Add to:
-                    </label>
-                    <select
-                      value={selectedSection[question.id] || 'A'}
-                      onChange={(e) => {
-                        setSelectedSection((prev) => ({
-                          ...prev,
-                          [question.id]: e.target.value,
-                        }));
-                      }}
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    >
-                      {sections.map((section) => (
-                        <option key={section} value={section}>
-                          Section {section}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="space-y-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                        Add to:
+                      </label>
+                      <select
+                        value={selectedSection[question.id] || 'A'}
+                        onChange={(e) => {
+                          setSelectedSection((prev) => ({
+                            ...prev,
+                            [question.id]: e.target.value,
+                          }));
+                        }}
+                        className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      >
+                        {sections.map((section) => (
+                          <option key={section} value={section}>
+                            Section {section}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* NEW: Sub-question capability toggle */}
+                    {canHaveSubQuestions(question.question_type) && (
+                      <div className="flex items-center gap-2 px-1">
+                        <input
+                          type="checkbox"
+                          id={`sub-q-${question.id}`}
+                          checked={allowSubQuestions[question.id] ?? true}
+                          onChange={(e) => {
+                            setAllowSubQuestions((prev) => ({
+                              ...prev,
+                              [question.id]: e.target.checked,
+                            }));
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                        />
+                        <label 
+                          htmlFor={`sub-q-${question.id}`}
+                          className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer"
+                        >
+                          Allow sub-questions
+                        </label>
+                      </div>
+                    )}
+
                     <button
                       onClick={() => handleSelectQuestion(question)}
-                      className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 flex-shrink-0"
+                      className="w-full rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700"
                     >
                       Add →
                     </button>
@@ -784,13 +827,15 @@ export default function SelectQuestionsPage() {
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm font-bold text-white">SECTION {section}</h3>
                         <span className="text-xs font-medium text-blue-100">
-                          {sectionQuestions.length} • {sectionQuestions.reduce((sum, sq) => sum + sq.marks, 0)} marks
+                          {sectionQuestions.length} questions • {sectionQuestions.reduce((sum, sq) => sum + sq.marks, 0)} marks
                         </span>
                       </div>
                     </div>
 
                     {sectionQuestions.map((sq) => {
                       const isMainQuestion = !sq.parent_question_id;
+                      const hasSubQuestionLabel = sq.sub_question_label !== null && sq.sub_question_label !== undefined;
+                      
                       const indentClass = 
                         sq.indentation_level === 1 ? 'ml-6' : 
                         sq.indentation_level === 2 ? 'ml-12' : 
@@ -798,9 +843,12 @@ export default function SelectQuestionsPage() {
                       
                       // Format display number
                       let displayNum: string;
-                      if (isMainQuestion) {
-                        // Main question: use full display number
+                      if (isMainQuestion && !hasSubQuestionLabel) {
+                        // Main question without sub-questions: show just the number
                         displayNum = sq.display_number || sq.question_number;
+                      } else if (isMainQuestion && hasSubQuestionLabel) {
+                        // Main question that became (a): show the full display
+                        displayNum = sq.display_number || `${sq.question_number}(${sq.sub_question_label})`;
                       } else {
                         // Sub-question: extract just the sub-part
                         // e.g., "1(a)" -> "(a)", "2(i)" -> "(i)"
@@ -810,6 +858,10 @@ export default function SelectQuestionsPage() {
                           displayNum = sq.display_number || sq.question_number;
                         }
                       }
+                      
+                      const canAddSubQuestions = isMainQuestion && 
+                                                 canHaveSubQuestions(sq.question.question_type) && 
+                                                 (sq.can_have_sub_questions !== false);
                       
                       return (
                         <div
@@ -824,13 +876,24 @@ export default function SelectQuestionsPage() {
                             <div className="flex-1">
                               <div className="mb-2 flex items-center gap-2 flex-wrap">
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold text-white ${
-                                  isMainQuestion ? 'bg-green-600' : 'bg-purple-600'
+                                  isMainQuestion && !hasSubQuestionLabel ? 'bg-green-600' : 
+                                  hasSubQuestionLabel ? 'bg-purple-600' : 'bg-purple-600'
                                 }`}>
                                   {displayNum}
                                 </span>
                                 {!isMainQuestion && (
                                   <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
                                     Sub-question (Level {sq.indentation_level || 1})
+                                  </span>
+                                )}
+                                {isMainQuestion && hasSubQuestionLabel && (
+                                  <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                    Main question with sub-parts
+                                  </span>
+                                )}
+                                {isMainQuestion && sq.can_have_sub_questions === false && (
+                                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                                    🔒 No sub-questions
                                   </span>
                                 )}
                               </div>
@@ -846,7 +909,7 @@ export default function SelectQuestionsPage() {
                               </p>
                             </div>
                             <div className="ml-2 flex flex-col gap-2">
-                              {isMainQuestion && canHaveSubQuestions(sq.question.question_type) && (
+                              {canAddSubQuestions && (
                                 <button
                                   onClick={() => {
                                     setLastAddedQuestion(sq);

@@ -221,26 +221,59 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
                 } overflow-y-auto border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800`}
               >
-                <nav className="space-y-2 p-4">
-                  {filteredNavLinks.map((link) => {
-                    const isActive =
-                      pathname === link.href || pathname?.startsWith(link.href + '/');
-                    return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center rounded-lg px-4 py-3 transition-colors ${
-                          isActive
-                            ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                            : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        <span className="mr-3 text-xl">{link.emoji}</span>
-                        <span>{link.title.replace(/^[^\s]+\s/, '')}</span>
-                      </Link>
-                    );
-                  })}
+                <nav className="flex h-full flex-col p-4">
+                  {/* Main navigation links */}
+                  <div className="flex-1 space-y-2">
+                    {filteredNavLinks
+                      .filter((link) => link.href !== '/settings')
+                      .map((link) => {
+                        const isActive =
+                          pathname === link.href || pathname?.startsWith(link.href + '/');
+                        return (
+                          <Link
+                            key={link.href}
+                            href={link.href}
+                            onClick={() => setSidebarOpen(false)}
+                            className={`flex items-center rounded-lg px-4 py-3 transition-colors ${
+                              isActive
+                                ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            <span className="mr-3 text-xl">{link.emoji}</span>
+                            <span>{link.title.replace(/^[^\s]+\s/, '')}</span>
+                          </Link>
+                        );
+                      })}
+                  </div>
+
+                  {/* Settings at bottom with separator */}
+                  {filteredNavLinks.some((link) => link.href === '/settings') && (
+                    <>
+                      <div className="my-2 border-t border-gray-200 dark:border-gray-700" />
+                      {filteredNavLinks
+                        .filter((link) => link.href === '/settings')
+                        .map((link) => {
+                          const isActive =
+                            pathname === link.href || pathname?.startsWith(link.href + '/');
+                          return (
+                            <Link
+                              key={link.href}
+                              href={link.href}
+                              onClick={() => setSidebarOpen(false)}
+                              className={`flex items-center rounded-lg px-4 py-3 transition-colors ${
+                                isActive
+                                  ? 'bg-blue-50 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                  : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                              }`}
+                            >
+                              <span className="mr-3 text-xl">{link.emoji}</span>
+                              <span>{link.title.replace(/^[^\s]+\s/, '')}</span>
+                            </Link>
+                          );
+                        })}
+                    </>
+                  )}
                 </nav>
               </aside>
 

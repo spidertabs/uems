@@ -1,8 +1,8 @@
 -- ============================================================
 --  UEMS - University Exam Management System
 --  Complete MySQL Database Schema with Sub-Questions Support
---  Version: 2.0
---  Last Updated: 2024
+--  Version: 2.1 (Updated with can_have_sub_questions)
+--  Last Updated: 2025
 -- ============================================================
 -- ORGANIZATIONAL STRUCTURE
 -- =====================================================
@@ -33,6 +33,30 @@ CREATE TABLE departments (
     INDEX idx_code (code),
     INDEX idx_college (college_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Programmes Table (BIT, DIT, BSTAT, DSTAT, MBA, BBA, BOL, etc.)
+CREATE TABLE programmes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE COMMENT 'Programme code (e.g., BIT, DIT, BSTAT)',
+    name VARCHAR(255) NOT NULL UNIQUE COMMENT 'Full programme name',
+    level ENUM('diploma', 'bachelors', 'masters', 'phd') NOT NULL,
+    duration_years INT COMMENT 'Standard duration in years',
+    department_id INT,
+    college_id INT,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+    FOREIGN KEY (college_id) REFERENCES colleges(id) ON DELETE SET NULL,
+    INDEX idx_code (code),
+    INDEX idx_department (department_id),
+    INDEX idx_college (college_id),
+    INDEX idx_level (level),
+    INDEX idx_active (is_active),
+    INDEX idx_level_active (level, is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- Programmes Table (BIT, DIT, BSTAT, DSTAT, MBA, BBA, BOL, etc.)
 CREATE TABLE programmes (
@@ -324,6 +348,7 @@ CREATE TABLE exam_paper_questions (
     sequence_order INT NOT NULL,
     parent_question_id INT,
     indentation_level INT DEFAULT 0,
+    can_have_sub_questions BOOLEAN DEFAULT TRUE COMMENT 'Whether this question can have sub-questions (user-controlled)',
     option_order JSON,
     custom_instructions TEXT,
     notes TEXT,
@@ -343,7 +368,6 @@ CREATE TABLE exam_paper_questions (
     INDEX idx_sequence (sequence_order),
     INDEX idx_indentation (indentation_level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 
 -- =====================================================
 -- WORKFLOW & APPROVALS
