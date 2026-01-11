@@ -483,7 +483,7 @@ export default function PreviewExamPaperPage() {
         </div>
 
         {/* Course Information */}
-        <div className="mb-6 px-4 py-3 print:border-0">
+        <div className="mb-0 px-4 py-3 print:border-0">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-black">
@@ -527,7 +527,7 @@ export default function PreviewExamPaperPage() {
         </div>
 
         {/* Instructions - UPDATED WITH GREY BACKGROUND */}
-        <div className="mb-6 p-4 print:p-4 print:bg-gray-100 bg-gray-100 dark:bg-gray-700 rounded-lg">
+        <div className="mb-6 p-4 print:p-2 print:bg-gray-100 bg-gray-100 dark:bg-gray-700 rounded-lg">
           <p className="mb-2 font-bold uppercase text-gray-900 dark:text-white print:text-black">
             Instructions to Candidates:
           </p>
@@ -537,10 +537,8 @@ export default function PreviewExamPaperPage() {
             </div>
           ) : (
             <ul className="list-inside list-disc space-y-1 text-sm text-gray-800 dark:text-gray-200 print:text-black">
-              <li>All answers and Rough work should be booklet provided.</li>
               <li>Write clearly and legibly.</li>
-              <li>Show all working for problem-solving questions.</li>
-              <li>Calculators may be used where appropriate.</li>
+              <li>All answers and Rough work should be booklet provided.</li>
             </ul>
           )}
         </div>

@@ -213,6 +213,7 @@ export interface ExamPaper {
   duration: number | null;
   total_marks: number;
   instructions: string | null;
+  footer_text: string | null;
   status: PaperStatus;
   hod_id: number | null;
   hod_approved_at: Date | null;
@@ -267,6 +268,7 @@ export interface ExamPaperQuestion {
   sequence_order: number;
   parent_question_id: number | null;
   indentation_level: number;
+  can_have_sub_questions: boolean;
   // MCQ option shuffling
   option_order: number[] | string | null; // Can be JSON string or parsed array
   // Additional metadata
@@ -536,6 +538,7 @@ export interface PaperFormData {
   exam_date?: string;
   duration?: number;
   instructions?: string;
+  footer_text?: string;
   programme_ids?: number[];
 }
 
@@ -552,6 +555,54 @@ export interface AddQuestionToPaperData {
   choice_group?: string | null;
   choice_instructions?: string | null;
   custom_instructions?: string | null;
+}
+
+export interface CollegeFormData {
+  code: string;
+  name: string;
+  abbrv: string;
+  description?: string;
+}
+
+export interface DepartmentFormData {
+  college_id: number;
+  code: string;
+  name: string;
+  abbrv: string;
+  description?: string;
+}
+
+export interface ProgrammeFormData {
+  code: string;
+  name: string;
+  level: 'diploma' | 'bachelors' | 'masters' | 'phd';
+  duration_years?: number;
+  department_id?: number;
+  college_id?: number;
+  description?: string;
+  is_active?: boolean;
+}
+
+export interface UserFormData {
+  email: string;
+  password?: string;
+  first_name: string;
+  last_name: string;
+  role: 'lecturer' | 'hod' | 'dean' | 'exam_master' | 'admin';
+  department_id?: number;
+  college_id?: number;
+  phone?: string;
+  is_active?: boolean;
+}
+
+export interface PermissionFormData {
+  lecturer_id: number;
+  course_id: number;
+  can_add_questions: boolean;
+  can_create_papers: boolean;
+  can_edit_questions: boolean;
+  expires_at?: string;
+  notes?: string;
 }
 
 // =====================================================

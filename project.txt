@@ -30,165 +30,304 @@ WORKFLOW:
 NOTE: Dont generate files that I have ...I already have my data in my database 
       so i wanna build the files ✅️
 
+# UEMS - Complete Project Structure
+## Updated with All Missing Pages & Components
+
+```
 📦 uems/
 │
-├── 📜 .env.local                                   # Environment variables      ✅️
-├── 📜 .env.example                                 # Example environment file   ✅️
-├── 📜 .gitignore                                                                ✅️
-├── 📜 next.config.js                                                            ✅️ 
-├── 📜 package.json                                                              ✅️
-├── 📜 tsconfig.json                                # TypeScript configuration   ✅️
-├── 📜 tailwind.config.js                                                        ✅️
+├── 📜 .env.local                                   ✅
+├── 📜 .env.example                                 ✅
+├── 📜 .gitignore                                   ✅
+├── 📜 next.config.js                               ✅
+├── 📜 package.json                                 ✅
+├── 📜 tsconfig.json                                ✅
+├── 📜 tailwind.config.js                           ✅
 │
 ├── 📂 sql/
-│   ├── 📜 schema.sql                               # Database schema            ✅️
-│   └── 📜 seed.sql                                 # Initial data insert        ✅️
+│   ├── 📜 schema.sql                               ✅
+│   └── 📜 seed.sql                                 ✅
 │
-├── 📂 public/                                      # Static assets              ✅️
-│   ├── 📂 static                                                                ✅️
-│   │   ├── 📂 favicons                                                          ✅️
-│   │   ├── 📂 images  
-│   │   │   ├── kiu-home.png                                                     ✅️
-│   │   │   ├── kiu-logo.png                                                     ✅️
-│   │   │   ├── kiu-seal.png                                                     ✅️
-│   │   └── 📂 stamps/                              # Digital stamps             ✅️
+├── 📂 public/                                      ✅
+│   ├── 📂 static
+│   │   ├── 📂 favicons                             
+│   │   ├── 📂 images
+│   │   │   ├── kiu-home.png                        
+│   │   │   ├── kiu-logo.png                        
+│   │   │   ├── kiu-seal.png                        
+│   │   └── 📂 stamps/                              
 │
-├── 📂 css/
-│   ├── 📜 prism.css                                                             ✅️                  
-│   └── 📜 tailwind.css                             # Tailwind v4                ✅️
-│ 
+├── 📂 css/                                         
+│   ├── 📜 prism.css                                
+│   └── 📜 tailwind.css                             
+│
 ├── 📂 src/
-│   │ 
+│   │
 │   ├── 📂 app/
 │   │   │
-│   │   ├── 📂 (auth)/
+│   │   ├── 📂 (auth)/                              ✅
 │   │   │   ├── 📂 login/
-│   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx                        
 │   │   │   └── 📂 register/
-│   │   │       └── page.tsx
+│   │   │       └── page.tsx                        
 │   │   │
-│   │   ├── 📂 exam-papers/                         # Papers directly under app
-│   │   │   ├── page.tsx
+│   │   ├── 📂 exam-papers/                         
+│   │   │   ├── page.tsx                            
 │   │   │   ├── 📂 create/
-│   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx                        
 │   │   │   ├── 📂 submitted/
-│   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx                        
 │   │   │   └── 📂 [paperId]/
-│   │   │       ├── page.tsx
+│   │   │       ├── page.tsx                        
 │   │   │       ├── 📂 edit/
-│   │   │       │   └── page.tsx
+│   │   │       │   └── page.tsx                    
 │   │   │       ├── 📂 preview/
-│   │   │       │   └── page.tsx
+│   │   │       │   └── page.tsx                    
 │   │   │       └── 📂 select-questions/
-│   │   │           └── page.tsx
+│   │   │           └── page.tsx                    
 │   │   │
-│   │   ├── 📂 question-bank/                       # Question bank directly under app
-│   │   │   ├── page.tsx
+│   │   ├── 📂 question-bank/                       ✅
+│   │   │   ├── page.tsx                            
 │   │   │   ├── 📂 create/
-│   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx                        
 │   │   │   └── 📂 edit/[id]/
-│   │   │       └── page.tsx
+│   │   │       └── page.tsx                        
 │   │   │
-│   │   ├── 📂 courses/                             # Courses directly under app
-│   │   │   ├── 📜 page.tsx                         # Courses list
+│   │   ├── 📂 courses/                             ✅
+│   │   │   ├── 📜 page.tsx                         
 │   │   │   ├── 📂 create/
-│   │   │   │   └── 📜 page.tsx                     # Create course
+│   │   │   │   └── 📜 page.tsx                     
 │   │   │   ├── 📂 import/
-│   │   │   │   └── 📜 page.tsx                     # Import courses CSV/Excel
+│   │   │   │   └── 📜 page.tsx                     
 │   │   │   ├── 📂 edit/
 │   │   │   │   └── 📂 [id]/
-│   │   │   │       └── 📜 page.tsx                 # Edit course
-│   │   │   └── 📂 [id]/                            # Course details
-│   │   │       ├── 📜 page.tsx                     # View course details
-│   │   │       └── 📂 study-units/                 # Nested under a course
-│   │   │           ├── 📜 page.tsx                 # Study units list
+│   │   │   │       └── 📜 page.tsx                 
+│   │   │   └── 📂 [id]/
+│   │   │       ├── 📜 page.tsx                     
+│   │   │       └── 📂 study-units/
+│   │   │           ├── 📜 page.tsx                 
 │   │   │           ├── 📂 create/
-│   │   │           │   └── 📜 page.tsx             # Create study unit
-│   │   │           └── 📂 [unitId]/                # Study unit details
-│   │   │               ├── 📜 page.tsx             # View study unit
+│   │   │           │   └── 📜 page.tsx             
+│   │   │           └── 📂 [unitId]/
+│   │   │               ├── 📜 page.tsx             
 │   │   │               └── 📂 edit/
-│   │   │                   └── 📜 page.tsx         # Edit study unit
+│   │   │                   └── 📜 page.tsx         
 │   │   │
-│   │   ├── 📂 approvals/                           # Approvals directly under app
-│   │   │   └── 📜 page.tsx
+│   │   ├── 📂 colleges/                            ⭐ NEW SECTION
+│   │   │   ├── 📜 page.tsx                         ⭐ CREATE - List colleges
+│   │   │   ├── 📂 create/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE
+│   │   │   ├── 📂 edit/
+│   │   │   │   └── 📂 [id]/
+│   │   │   │       └── 📜 page.tsx                 ⭐ CREATE
+│   │   │   └── 📂 [id]/
+│   │   │       ├── 📜 page.tsx                     ⭐ CREATE - View college
+│   │   │       └── 📂 departments/                 ⭐ Departments nested under college
+│   │   │           ├── 📜 page.tsx                 ⭐ CREATE - List departments
+│   │   │           ├── 📂 create/
+│   │   │           │   └── 📜 page.tsx             ⭐ CREATE
+│   │   │           └── 📂 [deptId]/
+│   │   │               ├── 📜 page.tsx             ⭐ CREATE - View dept
+│   │   │               └── 📂 edit/
+│   │   │                   └── 📜 page.tsx         ⭐ CREATE
 │   │   │
-│   │   ├── 📂 notifications/                       # ⭐ Inbox / Outbox / Feedback
-│   │   │   ├── 📂 inbox/
-│   │   │   │   └── page.tsx                        # Papers waiting for action
-│   │   │   ├── 📂 outbox/
-│   │   │   │   └── page.tsx                        # Papers user submitted
-│   │   │   ├── 📂 feedback/
-│   │   │   │   └── page.tsx                        # Returned papers + comments
+│   │   ├── 📂 programmes/                          ⭐ NEW SECTION
+│   │   │   ├── 📜 page.tsx                         ⭐ CREATE - List programmes
+│   │   │   ├── 📂 create/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE
+│   │   │   ├── 📂 import/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE - Import CSV/Excel
+│   │   │   ├── 📂 edit/
+│   │   │   │   └── 📂 [id]/
+│   │   │   │       └── 📜 page.tsx                 ⭐ CREATE
+│   │   │   └── 📂 [id]/
+│   │   │       └── 📜 page.tsx                     ⭐ CREATE - View programme
+│   │   │
+│   │   ├── 📂 users/                               ⭐ NEW SECTION
+│   │   │   ├── 📜 page.tsx                         ⭐ CREATE - List users
+│   │   │   ├── 📂 create/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE
+│   │   │   ├── 📂 import/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE - Bulk import
+│   │   │   └── 📂 [id]/
+│   │   │       ├── 📜 page.tsx                     ⭐ CREATE - View user
+│   │   │       └── 📂 edit/
+│   │   │           └── 📜 page.tsx                 ⭐ CREATE
+│   │   │
+│   │   ├── 📂 permissions/                         ⭐ NEW SECTION
+│   │   │   ├── 📜 page.tsx                         ⭐ CREATE - List all permissions
+│   │   │   ├── 📂 grant/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE - Grant new permission
+│   │   │   └── 📂 [id]/
+│   │   │       ├── 📜 page.tsx                     ⭐ CREATE - View permission
+│   │   │       └── 📂 edit/
+│   │   │           └── 📜 page.tsx                 ⭐ CREATE
+│   │   │
+│   │   ├── 📂 print-queue/                         ⭐ NEW SECTION
+│   │   │   ├── 📜 page.tsx                         ⭐ CREATE - Papers ready for print
+│   │   │   ├── 📂 [paperId]/
+│   │   │   │   ├── 📜 page.tsx                     ⭐ CREATE - Print preview
+│   │   │   │   └── 📂 print/
+│   │   │   │       └── 📜 page.tsx                 ⭐ CREATE - Confirm printing
 │   │   │   └── 📂 history/
-│   │   │       └── page.tsx                        # Audit logs + timeline
+│   │   │       └── 📜 page.tsx                     ⭐ CREATE - Print history
 │   │   │
-│   │   ├── 📂 profile/                             # Profile directly under app
-│   │   │   └── page.tsx
+│   │   ├── 📂 audit/                               ⭐ NEW SECTION
+│   │   │   ├── 📜 page.tsx                         ⭐ CREATE - Audit logs list
+│   │   │   └── 📂 [id]/
+│   │   │       └── 📜 page.tsx                     ⭐ CREATE - Audit detail
+│   │   │
+│   │   ├── 📂 approvals/
+│   │   │   └── 📜 page.tsx                         ⭐ CREATE
+│   │   │
+│   │   ├── 📂 notifications/
+│   │   │   ├── 📂 inbox/
+│   │   │   │   └── page.tsx                        ⭐ CREATE
+│   │   │   ├── 📂 outbox/
+│   │   │   │   └── page.tsx                        ⭐ CREATE
+│   │   │   ├── 📂 feedback/
+│   │   │   │   └── page.tsx                        ⭐ CREATE
+│   │   │   └── 📂 history/
+│   │   │       └── page.tsx                        ⭐ CREATE
+│   │   │
+│   │   ├── 📂 reports/                             ⭐ NEW SECTION
+│   │   │   ├── 📜 page.tsx                         ⭐ CREATE - Reports dashboard
+│   │   │   ├── 📂 papers/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE
+│   │   │   ├── 📂 questions/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE
+│   │   │   ├── 📂 workflow/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE
+│   │   │   └── 📂 usage/
+│   │   │       └── 📜 page.tsx                     ⭐ CREATE
+│   │   │
+│   │   ├── 📂 settings/                            ⭐ NEW SECTION
+│   │   │   ├── 📜 page.tsx                         ⭐ CREATE - Settings dashboard
+│   │   │   ├── 📂 profile/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE
+│   │   │   ├── 📂 preferences/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE
+│   │   │   ├── 📂 security/
+│   │   │   │   └── 📜 page.tsx                     ⭐ CREATE
+│   │   │   └── 📂 system/
+│   │   │       └── 📜 page.tsx                     ⭐ CREATE - System settings (admin)
+│   │   │
+│   │   ├── 📂 profile/
+│   │   │   └── page.tsx                            ⭐ CREATE
 │   │   │
 │   │   ├── 📂 api/
 │   │   │   ├── 📂 auth/
-│   │   │   │   ├── layout.tsx
-│   │   │   │   ├── login/route.ts
-│   │   │   │   └── register/route.ts
+│   │   │   │   ├── layout.tsx                      ✅
+│   │   │   │   ├── login/route.ts                  
+│   │   │   │   ├── register/route.ts               
+│   │   │   │   ├── me/route.ts                     
+│   │   │   │   └── logout/route.ts                 
 │   │   │   │
 │   │   │   ├── 📂 stats/
-│   │   │   │   └── route.ts
+│   │   │   │   └── route.ts                        ⭐ CREATE
 │   │   │   │
-│   │   │   ├── 📂 question-bank/
-│   │   │   │   ├── route.ts
-│   │   │   │   ├── create/route.ts
-│   │   │   │   └── [id]/route.ts
+│   │   │   ├── 📂 question-bank/                   ✅
+│   │   │   │   ├── route.ts                        
+│   │   │   │   ├── create/route.ts                 
+│   │   │   │   └── [id]/route.ts                   
+│   │   │   │
+│   │   │   ├── 📂 colleges/                        ⭐ NEW
+│   │   │   │   ├── route.ts                        ⭐ CREATE - GET all, POST new
+│   │   │   │   └── [id]/route.ts                   ⭐ CREATE - GET, PUT, DELETE
+│   │   │   │
+│   │   │   ├── 📂 departments/                     ⭐ NEW
+│   │   │   │   ├── route.ts                        ⭐ CREATE
+│   │   │   │   └── [id]/route.ts                   ⭐ CREATE
 │   │   │   │
 │   │   │   ├── 📂 programmes/
-│   │   │   │   ├── route.ts
-│   │   │   │   └── [id]/route.ts
+│   │   │   │   ├── route.ts                        ⭐ CREATE
+│   │   │   │   └── [id]/route.ts                   ⭐ CREATE
 │   │   │   │
-│   │   │   ├── 📂 exam-papers/
-│   │   │   │   ├── route.ts
-│   │   │   │   ├── create/route.ts
-│   │   │   │   └── [paperId]/                      # CHANGED: id → paperId for consistency
-│   │   │   │       ├── route.ts
-│   │   │   │       ├── submit/route.ts
-│   │   │   │       └── approve/route.ts
+│   │   │   ├── 📂 courses/
+│   │   │   │   ├── route.ts                        ⭐ CREATE
+│   │   │   │   ├── [id]/route.ts                   ⭐ CREATE
+│   │   │   │   └── [id]/study-units/route.ts       ⭐ CREATE
+│   │   │   │
+│   │   │   ├── 📂 users/                           ⭐ NEW
+│   │   │   │   ├── route.ts                        ⭐ CREATE
+│   │   │   │   └── [id]/route.ts                   ⭐ CREATE
+│   │   │   │
+│   │   │   ├── 📂 permissions/                     ⭐ NEW
+│   │   │   │   ├── route.ts                        ⭐ CREATE
+│   │   │   │   ├── grant/route.ts                  ⭐ CREATE
+│   │   │   │   └── [id]/route.ts                   ⭐ CREATE
+│   │   │   │
+│   │   │   ├── 📂 exam-papers/                     ✅
+│   │   │   │   ├── route.ts                        
+│   │   │   │   ├── create/route.ts                 
+│   │   │   │   └── [paperId]/
+│   │   │   │       ├── route.ts                    
+│   │   │   │       ├── submit/route.ts             
+│   │   │   │       ├── approve/route.ts            
+│   │   │   │       ├── reject/route.ts             
+│   │   │   │       ├── print/route.ts              
+│   │   │   │       └── questions/route.ts          
+│   │   │   │
+│   │   │   ├── 📂 print-queue/                     ⭐ NEW
+│   │   │   │   ├── route.ts                        ⭐ CREATE
+│   │   │   │   └── [paperId]/
+│   │   │   │       ├── start/route.ts              ⭐ CREATE
+│   │   │   │       └── complete/route.ts           ⭐ CREATE
 │   │   │   │
 │   │   │   ├── 📂 workflows/
-│   │   │   │   ├── inbox/route.ts
-│   │   │   │   ├── outbox/route.ts
-│   │   │   │   ├── feedback/route.ts
-│   │   │   │   └── history/route.ts
+│   │   │   │   ├── inbox/route.ts                  ⭐ CREATE
+│   │   │   │   ├── outbox/route.ts                 ⭐ CREATE
+│   │   │   │   ├── feedback/route.ts               ⭐ CREATE
+│   │   │   │   └── history/route.ts                ⭐ CREATE
 │   │   │   │
-│   │   │   └── notifications/route.ts
+│   │   │   ├── 📂 audit/                           ⭐ NEW
+│   │   │   │   ├── route.ts                        ⭐ CREATE
+│   │   │   │   └── [id]/route.ts                   ⭐ CREATE
+│   │   │   │
+│   │   │   ├── 📂 reports/                         ⭐ NEW
+│   │   │   │   ├── dashboard/route.ts              ⭐ CREATE
+│   │   │   │   ├── papers/route.ts                 ⭐ CREATE
+│   │   │   │   ├── questions/route.ts              ⭐ CREATE
+│   │   │   │   └── workflow/route.ts               ⭐ CREATE
+│   │   │   │
+│   │   │   └── notifications/route.ts              ⭐ CREATE
 │   │   │
-│   │   ├── 📜 globals.css                                                       ✅️
-│   │   ├── 📜 not-found.tsx                                                     ✅️
-│   │   ├── 📜 robot.ts                                                          ✅️
-│   │   ├── 📜 seo.tsx                                                           ✅️
-│   │   ├── 📜 theme-provider.tsx                                                ✅️
-│   │   └── layout.tsx         
+│   │   ├── 📜 globals.css                          ✅
+│   │   ├── 📜 not-found.tsx                        ✅
+│   │   ├── 📜 robot.ts                             ✅
+│   │   ├── 📜 seo.tsx                              ✅
+│   │   ├── 📜 theme-provider.tsx                   ✅
+│   │   ├── 📜 page.tsx                             ✅
+│   │   └── layout.tsx                              ✅
 │   │
-│   ├── 📂 components/                               # Reusable components
-│   │   └── 📂 ui
+│   ├── 📂 components/
+│   │   └── 📂 ui/                                  ⭐ Shadcn components
 │   │
-│   ├── 📂 data/
-│   │   └── headerNavLinks.ts
+│   ├── 📂 data/                                    ✅
+│   │   ├── siteMetadata.js                         
+│   │   └── headerNavLinks.ts                      
 │   │
 │   ├── 📂 hooks/
-│   │   ├── useAuth.ts
-│   │   └── useRole.ts
+│   │   ├── useAuth.ts                              ⭐ CREATE
+│   │   ├── useRole.ts                              ⭐ CREATE
+│   │   ├── usePagination.ts                        ⭐ CREATE
+│   │   └── useDebounce.ts                          ⭐ CREATE
 │   │
 │   ├── 📂 lib/
-│   │   ├── db.ts                                     # MySQL connection         ✅️
-│   │   ├── auth.ts                                                              ✅️
-│   │   ├── rbac.ts                                                              ✅️
-│   │   └── utils.ts                                                             ✅️
+│   │   ├── db.ts                                   ✅
+│   │   ├── auth.ts                                 ✅
+│   │   ├── rbac.ts                                 ✅
+│   │   ├── utils.ts                                ✅
+│   │   ├── validators.ts                           
+│   │   └── generateSearchJson.ts                   
 │   │
 │   ├── 📂 types/
-│   │   ├── env.d.ts                                                             ✅️
-│   │   └── index.ts                                                             ✅️
+│   │   ├── env.d.ts                                ✅
+│   │   └── index.ts                                ✅
 │   │
 │   ├── 📂 config/
-│   │   └── index.ts                                                             ✅️
+│   │   └── index.ts                                ✅
 │   │
-│   └── 📜 middleware.ts                                                         ✅️
+│   └── 📜 middleware.ts                            ✅
 │
-└── 📜 README.md                                     # Documentation
+└── 📜 README.md

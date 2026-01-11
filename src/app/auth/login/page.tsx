@@ -19,42 +19,39 @@ export default function LoginPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    // Clear error when user starts typing
-    if (error) setError('');
+    if (error) setError(''); // Clear error when user starts typing
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
-  setLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
 
-    const data = await res.json();
-    
-    if (!res.ok) {
-      throw new Error(data.error || 'Login failed');
-    }
+      const data = await res.json();
 
-    if (data.success) {
-      // Redirect to root (which is the dashboard) on successful login
-      router.push('/');  // ← Changed from '/dashboard'
+      // ✅ Instead of throwing an error, handle invalid credentials gracefully
+      if (!res.ok || !data.success) {
+        setError(data.error || 'Invalid email or password');
+        return;
+      }
+
+      // Redirect to dashboard/root on successful login
+      router.push('/');
       router.refresh();
-    } else {
-      setError(data.error || 'Login failed');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('Login error:', err);
-    setError(err instanceof Error ? err.message : 'Login failed');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="mx-auto max-w-md px-6 py-6">
@@ -73,10 +70,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         <CardContent className="space-y-5 p-6">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label 
-                htmlFor="email" 
-                className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
+              <label htmlFor="email" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Email Address
               </label>
               <Input
@@ -93,10 +87,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
 
             <div>
-              <label 
-                htmlFor="password" 
-                className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
+              <label htmlFor="password" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Password
               </label>
               <div className="relative">
@@ -124,24 +115,21 @@ const handleSubmit = async (e: React.FormEvent) => {
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center space-x-2">
-                <input 
-                  type="checkbox" 
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700" 
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
                   disabled={loading}
                 />
                 <span className="text-gray-700 dark:text-gray-300">Remember me</span>
               </label>
-              <Link 
-                href="#" 
-                className="text-blue-600 hover:underline dark:text-blue-400"
-              >
+              <Link href="#" className="text-blue-600 hover:underline dark:text-blue-400">
                 Forgot password?
               </Link>
             </div>
 
-            <Button 
-              type="submit" 
-              disabled={loading} 
+            <Button
+              type="submit"
+              disabled={loading}
               className="w-full bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
             >
               {loading ? 'Signing in...' : 'Sign In'}

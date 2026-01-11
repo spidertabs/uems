@@ -69,6 +69,7 @@ export default function QuestionBankPage() {
     if (filterCourse && filterCourse !== 'all') {
       fetchStudyUnits(filterCourse);
     } else {
+      // Clear study units when no course is selected
       setFilterOptions((prev) => ({ ...prev, studyUnits: [] }));
       setFilterStudyUnit('all');
     }
@@ -76,7 +77,6 @@ export default function QuestionBankPage() {
 
   const fetchStudyUnits = async (courseCode: string) => {
     try {
-      // Find the course ID from the code
       const course = filterOptions.courses.find(c => c.code === courseCode);
       if (!course) {
         console.log('Course not found for code:', courseCode);
@@ -90,7 +90,6 @@ export default function QuestionBankPage() {
         const data = await response.json();
         console.log('Study units response:', data);
         
-        // Your API returns { studyUnits: [...] } (camelCase)
         const units = data.studyUnits || [];
         
         console.log('Found units:', units.length);
@@ -216,30 +215,14 @@ export default function QuestionBankPage() {
     const matchesStudyUnit =
       filterStudyUnit === 'all' || question.study_unit_title === filterStudyUnit;
     
-    // Case-insensitive comparison for bloom level
     const matchesBloom = filterBloom === 'all' || 
       question.bloom_level?.toLowerCase() === filterBloom.toLowerCase();
     
-    // Case-insensitive comparison for difficulty
     const matchesDifficulty = filterDifficulty === 'all' || 
       question.difficulty_level?.toLowerCase() === filterDifficulty.toLowerCase();
     
-    // Case-insensitive comparison for question type
     const matchesType = filterType === 'all' || 
       question.question_type?.toLowerCase() === filterType.toLowerCase();
-
-    // Debug logging (remove after fixing)
-    if (filterBloom !== 'all' || filterDifficulty !== 'all' || filterType !== 'all') {
-      console.log('Question:', {
-        id: question.id,
-        bloom_level: question.bloom_level,
-        difficulty_level: question.difficulty_level,
-        question_type: question.question_type,
-        matchesBloom,
-        matchesDifficulty,
-        matchesType
-      });
-    }
 
     return (
       matchesSearch &&
@@ -251,8 +234,8 @@ export default function QuestionBankPage() {
     );
   });
 
-  // Only show questions if a study unit is selected
-  const displayQuestions = filterStudyUnit !== 'all' ? filteredQuestions : [];
+  // Show questions when course is selected (study unit is optional)
+  const displayQuestions = filterCourse !== 'all' ? filteredQuestions : [];
 
   // Stats calculations
   const totalMarks = displayQuestions.reduce((sum, q) => sum + q.marks, 0);
@@ -329,7 +312,7 @@ export default function QuestionBankPage() {
               }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             >
-              <option value="all">Select a course first</option>
+              <option value="all">Select a course</option>
               {filterOptions.courses.map((course) => (
                 <option key={course.code} value={course.code}>
                   {course.code} - {course.title}
@@ -340,7 +323,7 @@ export default function QuestionBankPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Study Unit <span className="text-red-500">*</span>
+              Study Unit
             </label>
             <select
               value={filterStudyUnit}
@@ -353,7 +336,7 @@ export default function QuestionBankPage() {
                   ? 'Select course first' 
                   : filterOptions.studyUnits.length === 0
                   ? 'No study units available'
-                  : 'Select a study unit'}
+                  : 'All Study Units'}
               </option>
               {filterOptions.studyUnits.map((unit) => (
                 <option key={unit.id} value={unit.title}>
@@ -433,12 +416,12 @@ export default function QuestionBankPage() {
             Clear All Filters
           </button>
           
-          {filterStudyUnit === 'all' && (
+          {filterCourse === 'all' && (
             <div className="flex items-center text-sm text-amber-600 dark:text-amber-400">
               <svg className="mr-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
-              Please select a course and study unit to view questions
+              Please select a course to view questions
             </div>
           )}
         </div>
@@ -458,7 +441,7 @@ export default function QuestionBankPage() {
             {displayQuestions.length}
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            {filterStudyUnit === 'all' ? 'Select Study Unit' : 'Questions in Unit'}
+            {filterCourse === 'all' ? 'Select Course' : filterStudyUnit === 'all' ? 'All Questions' : 'Filtered Questions'}
           </div>
         </div>
 
@@ -478,26 +461,26 @@ export default function QuestionBankPage() {
       </div>
 
       {/* Questions List */}
-      {filterStudyUnit === 'all' ? (
+      {filterCourse === 'all' ? (
         <div className="rounded-lg border border-gray-200 bg-white p-12 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="text-6xl">📚</div>
           <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-            Select a Course and Study Unit
+            Select a Course
           </h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Choose a course from the dropdown above, then select a study unit to view its questions
+            Choose a course from the dropdown above to view its questions
           </p>
         </div>
       ) : displayQuestions.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white p-12 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="text-6xl">❓</div>
           <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-            No questions found in this study unit
+            No questions found
           </h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {searchQuery || filterBloom !== 'all' || filterDifficulty !== 'all' || filterType !== 'all'
+            {searchQuery || filterStudyUnit !== 'all' || filterBloom !== 'all' || filterDifficulty !== 'all' || filterType !== 'all'
               ? 'Try adjusting your filters'
-              : 'Get started by creating your first question for this study unit'}
+              : 'Get started by creating your first question for this course'}
           </p>
         </div>
       ) : (

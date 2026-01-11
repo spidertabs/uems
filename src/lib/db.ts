@@ -3,9 +3,8 @@
 import mysql from 'mysql2/promise';
 
 // Database connection pool configuration
-const poolConfig = {
+const poolConfig: mysql.PoolOptions = {
   host: process.env.DB_HOST || 'localhost',
-  // port: parseInt(process.env.DB_PORT || '3306'),
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'uems',
@@ -16,8 +15,8 @@ const poolConfig = {
   keepAliveInitialDelay: 0,
 };
 
-// Create connection pool
-let pool: mysql.Pool;
+// Singleton pool
+let pool: mysql.Pool | undefined;
 
 export function getPool(): mysql.Pool {
   if (!pool) {
@@ -26,15 +25,26 @@ export function getPool(): mysql.Pool {
   return pool;
 }
 
-// Database query helper with error handling
-export async function query<T = any>(sql: string, params?: any[]): Promise<T> {
+// ✅ SAFE QUERY HELPER (DO NOT SWALLOW ERRORS)
+export async function query<T = any>(
+  sql: string,
+  params: any[] = []
+): Promise<T> {
+  const pool = getPool();
+
   try {
-    const pool = getPool();
     const [rows] = await pool.execute(sql, params);
     return rows as T;
   } catch (error) {
-    console.error('Database query error:', error);
-    throw new Error('Database query failed');
+    // 🔥 LOG REAL MYSQL ERROR
+    console.error('🔥 MYSQL QUERY ERROR:', {
+      sql,
+      params,
+      error,
+    });
+
+    // 🔥 RE-THROW ORIGINAL ERROR (CRITICAL)
+    throw error;
   }
 }
 
@@ -52,7 +62,7 @@ export async function transaction<T>(
     return result;
   } catch (error) {
     await connection.rollback();
-    console.error('Transaction error:', error);
+    console.error('❌ Transaction error:', error);
     throw error;
   } finally {
     connection.release();
@@ -74,19 +84,13 @@ export async function testConnection(): Promise<boolean> {
   }
 }
 
-// Close pool (useful for graceful shutdown)
+// Close pool (graceful shutdown)
 export async function closePool(): Promise<void> {
   if (pool) {
     await pool.end();
+    pool = undefined;
     console.log('Database pool closed');
   }
-}
-
-// Type definitions for common queries
-export interface QueryResult {
-  affectedRows: number;
-  insertId: number;
-  warningStatus: number;
 }
 
 export default getPool;

@@ -1,12 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/api/programmes/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import type { Programme } from '@/lib/db';
+import { getUserFromSession } from '@/lib/auth';
+import { logAuditFromRequest, AUDIT_ACTIONS, AUDIT_ENTITIES } from '@/lib/auditLogger';
+import type { Programme } from '@/types';
 
 // GET /api/programmes - Fetch all programmes (optionally filtered)
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const user = await getUserFromSession();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const level = searchParams.get('level');
     const departmentId = searchParams.get('department_id');
@@ -25,7 +32,6 @@ export async function GET(request: Request) {
       LEFT JOIN colleges c ON p.college_id = c.id
       WHERE 1=1
     `;
-
     const params: any[] = [];
 
     // Add filters
@@ -44,13 +50,11 @@ export async function GET(request: Request) {
       params.push(parseInt(collegeId));
     }
 
-    if (isActive !== null && isActive !== undefined) {
+    if (isActive !== null && isActive !== undefined && isActive !== 'all') {
       sql += ' AND p.is_active = ?';
       params.push(isActive === 'true' ? 1 : 0);
-    } else {
-      // Default: only active programmes
-      sql += ' AND p.is_active = 1';
     }
+    // If isActive is null, undefined, or 'all', show all programmes
 
     sql += ' ORDER BY p.code ASC';
 
@@ -58,6 +62,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
+      data: programmes,
       programmes,
       count: programmes.length,
     });
@@ -71,8 +76,18 @@ export async function GET(request: Request) {
 }
 
 // POST /api/programmes - Create a new programme (Admin/HOD only)
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const user = await getUserFromSession();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user has permission (admin or hod)
+    if (!['admin', 'hod'].includes(user.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
     const {
       code,
@@ -88,6 +103,15 @@ export async function POST(request: Request) {
     if (!code || !name || !level) {
       return NextResponse.json(
         { success: false, error: 'Code, name, and level are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate level
+    const validLevels = ['diploma', 'bachelors', 'masters', 'phd'];
+    if (!validLevels.includes(level)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid level. Must be: diploma, bachelors, masters, or phd' },
         { status: 400 }
       );
     }
@@ -121,6 +145,24 @@ export async function POST(request: Request) {
       ]
     );
 
+    const insertId = (result as any).insertId;
+
+    // Log audit
+    await logAuditFromRequest(request, {
+      userId: user.id,
+      action: AUDIT_ACTIONS.CREATE,
+      entityType: AUDIT_ENTITIES.PROGRAMME,
+      entityId: insertId,
+      newValues: {
+        code,
+        name,
+        level,
+        duration_years,
+        department_id,
+        college_id,
+      },
+    });
+
     // Fetch the created programme
     const newProgramme = await query<Programme[]>(
       `SELECT 
@@ -131,12 +173,13 @@ export async function POST(request: Request) {
       LEFT JOIN departments d ON p.department_id = d.id
       LEFT JOIN colleges c ON p.college_id = c.id
       WHERE p.id = ?`,
-      [(result as any).insertId]
+      [insertId]
     );
 
     return NextResponse.json(
       {
         success: true,
+        data: newProgramme[0],
         programme: newProgramme[0],
         message: 'Programme created successfully',
       },

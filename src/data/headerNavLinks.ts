@@ -7,63 +7,90 @@ export interface NavLink {
 }
 
 const headerNavLinks: NavLink[] = [
+  // Core Features
   {
     title: '📊 Dashboard',
     href: '/',
-    emoji: '📊',
-    roles: ['lecturer', 'hod', 'exam_master', 'admin'],
+    roles: ['lecturer', 'hod', 'dean', 'exam_master', 'admin'],
   },
   {
-    href: '/profile',
     title: '👤 Profile',
-    emoji: '👤',
+    href: '/profile',
   },
+  
+  // Academic Content
   {
-    title: '📝 Question Bank',
-    href: '/question-bank',
-    emoji: '📝',
-    roles: ['lecturer', 'hod', 'admin'],
-  },
-  {
-    title: '📄 Exam Papers',
-    href: '/exam-papers',
-    emoji: '📄',
-    roles: ['lecturer', 'hod', 'exam_master', 'admin'],
+    title: '📬 Notifications',
+    href: '/notifications/inbox',
+    roles: ['lecturer', 'hod', 'dean', 'exam_master', 'admin'],
   },
   {
     title: '✅ Approvals',
     href: '/approvals',
-    emoji: '✅',
-    roles: ['hod', 'admin'],
+    roles: ['hod', 'dean', 'admin'],
   },
+  {
+    title: '📄 Exam Papers',
+    href: '/exam-papers',
+    roles: ['lecturer', 'hod', 'exam_master', 'admin'],
+  },
+    {
+    title: '📝 Question Bank',
+    href: '/question-bank',
+    roles: ['lecturer', 'hod', 'admin'],
+  },
+
+  // Organization
   {
     title: '📚 Courses',
     href: '/courses',
-    emoji: '📚',
     roles: ['admin', 'hod'],
   },
-  {
+    {
     title: '🎓 Programmes',
     href: '/programmes',
-    emoji: '🎓',
     roles: ['admin', 'hod'],
   },
   {
-    title: '📬 Notifications',
-    href: '/notifications/inbox',
-    emoji: '📬',
-    roles: ['lecturer', 'hod', 'exam_master', 'admin'],
+    title: '🏛️ Colleges',
+    href: '/colleges',
+    roles: ['admin', 'hod'],
+  },
+  // Workflow & Communication
+
+
+  {
+    title: '🖨️ Print Queue',
+    href: '/print-queue',
+    roles: ['exam_master', 'admin'],
+  },
+  
+  // Management & Reports
+  {
+    title: '👥 Users',
+    href: '/users',
+    roles: ['admin'],
   },
   {
-    href: '/reports',
+    title: '🔐 Permissions',
+    href: '/permissions',
+    roles: ['admin', 'hod'],
+  },
+  {
     title: '📊 Reports',
-    emoji: '📊',
+    href: '/reports',
     roles: ['hod', 'dean', 'exam_master', 'admin'],
   },
   {
-    href: '/settings',
+    title: '📋 Audit Logs',
+    href: '/audit',
+    roles: ['admin', 'dean', 'hod'],
+  },
+  
+  // Bottom Section (Settings will be separated in layout)
+  {
     title: '⚙️ Settings',
-    emoji: '⚙️',
+    href: '/settings',
     roles: ['lecturer', 'hod', 'dean', 'exam_master', 'admin'],
   },
 ];
