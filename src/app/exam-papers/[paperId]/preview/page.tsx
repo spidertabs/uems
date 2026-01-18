@@ -503,7 +503,7 @@ export default function PreviewExamPaperPage() {
             </div>
             <div>
               <p className="font-semibold text-gray-700 dark:text-gray-300 print:text-black">
-                Date:
+                Exam Date:
               </p>
               <p className="text-lg font-bold text-gray-900 dark:text-white print:text-black">
                 {formatDate(paper.exam_date)}
@@ -562,7 +562,7 @@ export default function PreviewExamPaperPage() {
                 const mainQuestionsCount = sectionQuestions.filter(q => !q.parent_question_id).length;
                 
                 return (
-                  <div key={section} className="break-inside-avoid">
+                  <div key={section}>
                     <div className="mb-4 border-b-2 border-gray-700 pb-2 dark:border-gray-300 print:border-black">
                       <h3 className="text-lg font-bold uppercase text-gray-900 dark:text-white print:text-black">
                         Section {section}
@@ -594,7 +594,7 @@ export default function PreviewExamPaperPage() {
                         );
                         
                         return (
-                          <div key={question.id} className="space-y-4">
+                          <div key={question.id}>
                             {mainQuestionElement}
                             {children.map(child => renderQuestion(child, 0))}
                           </div>

@@ -1,8 +1,17 @@
 /* stylelint-disable at-rule-no-unknown */
 /* src/app/globals.css */
+
+/* ZERO-RISK FONT LOADING */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ✅ Global font */
+html {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
 
 html,
 body {

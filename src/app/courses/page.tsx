@@ -15,7 +15,7 @@ interface Course {
   credit_units: number;
   department_name: string;
   college_name: string;
-  college_abbreviation: string;
+  college_code: string;
   hod_name: string;
   is_active: boolean;
   study_units_count: number;
@@ -254,7 +254,7 @@ export default function CoursesPage() {
 
                 <div className="flex items-center text-gray-600 dark:text-gray-400">
                   <span className="w-24 font-medium">College:</span>
-                  <span>{course.college_abbreviation || 'N/A'}</span>
+                  <span>{course.college_code || 'N/A'}</span>
                 </div>
 
                 <div className="flex items-center text-gray-600 dark:text-gray-400">

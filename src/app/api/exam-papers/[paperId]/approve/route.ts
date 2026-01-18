@@ -1,4 +1,6 @@
-// src/app/api/exam-papers/[id]/approve/route.ts
+// ============================================================
+// src/app/api/exam-papers/[paperId]/approve/route.ts
+// ============================================================
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
@@ -6,7 +8,7 @@ import { verifyAuth } from '@/lib/auth';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ paperId: string }> }
 ) {
   try {
     const session = await verifyAuth(request);
@@ -14,16 +16,22 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const paperId = resolvedParams.id;
+    const { paperId } = await params;
     const body = await request.json();
     const { action, comments } = body; // action: 'approve' or 'reject'
 
     // Get paper details
     const paperResult = await query<any[]>(
-      `SELECT ep.*, c.department_id, c.college_id
+      `SELECT ep.*, 
+              c.department_id, 
+              c.college_id, 
+              c.hod_id,
+              d.name as department_name,
+              col.name as college_name
        FROM exam_papers ep
        JOIN courses c ON ep.course_id = c.id
+       LEFT JOIN departments d ON c.department_id = d.id
+       LEFT JOIN colleges col ON c.college_id = col.id
        WHERE ep.id = ?`,
       [paperId]
     );
@@ -34,17 +42,31 @@ export async function POST(
 
     const paper = paperResult[0];
 
+    // Get dean for this college (from users table)
+    const deanResult = await query<any[]>(
+      `SELECT id, first_name, last_name 
+       FROM users 
+       WHERE role = 'dean' 
+       AND college_id = ? 
+       AND is_active = TRUE 
+       AND deleted_at IS NULL
+       LIMIT 1`,
+      [paper.college_id]
+    );
+
+    const dean = deanResult && deanResult.length > 0 ? deanResult[0] : null;
+
     // Check permissions based on role and current status
     let canApprove = false;
     let newStatus = '';
     let workflowAction = '';
 
     if (session.role === 'hod' && paper.status === 'submitted') {
-      canApprove = paper.department_id === session.department_id;
+      canApprove = paper.hod_id === session.id;
       newStatus = action === 'approve' ? 'hod_approved' : 'hod_rejected';
       workflowAction = action === 'approve' ? 'hod_approved' : 'hod_rejected';
     } else if (session.role === 'dean' && paper.status === 'hod_approved') {
-      canApprove = paper.college_id === session.college_id;
+      canApprove = dean && dean.id === session.id;
       newStatus = action === 'approve' ? 'dean_approved' : 'dean_rejected';
       workflowAction = action === 'approve' ? 'dean_approved' : 'dean_rejected';
     } else if (session.role === 'admin') {
@@ -53,6 +75,9 @@ export async function POST(
         newStatus = action === 'approve' ? 'hod_approved' : 'hod_rejected';
         workflowAction = action === 'approve' ? 'hod_approved' : 'hod_rejected';
       } else if (paper.status === 'hod_approved') {
+        newStatus = action === 'approve' ? 'dean_approved' : 'dean_rejected';
+        workflowAction = action === 'approve' ? 'dean_approved' : 'dean_rejected';
+      } else if (paper.status === 'dean_approved') {
         newStatus = action === 'approve' ? 'ready_for_print' : 'dean_rejected';
         workflowAction = action === 'approve' ? 'ready_for_print' : 'dean_rejected';
       }
@@ -66,10 +91,12 @@ export async function POST(
     }
 
     // Update paper status
+    const approvalField = session.role === 'hod' ? 'hod_approved_at' : 'dean_approved_at';
     const updateSql = `
       UPDATE exam_papers 
       SET status = ?, 
-          ${session.role === 'hod' ? 'hod_approved_at' : 'dean_approved_at'} = ${action === 'approve' ? 'NOW()' : 'NULL'}
+          ${approvalField} = ${action === 'approve' ? 'NOW()' : 'NULL'},
+          updated_at = NOW()
       WHERE id = ?
     `;
     
@@ -123,13 +150,13 @@ export async function POST(
     );
 
     // If approved by HOD and there's a dean, notify dean
-    if (action === 'approve' && newStatus === 'hod_approved' && paper.dean_id) {
+    if (action === 'approve' && newStatus === 'hod_approved' && dean) {
       await query(
         `INSERT INTO notifications 
          (user_id, type, title, message, related_paper_id, action_url, priority)
          VALUES (?, 'approval_required', ?, ?, ?, ?, 'high')`,
         [
-          paper.dean_id,
+          dean.id,
           'Paper Awaiting Final Approval',
           `${paper.paper_code} has been approved by HOD and requires your final review.`,
           paperId,
@@ -141,7 +168,7 @@ export async function POST(
     // If ready for print, notify exam master
     if (newStatus === 'ready_for_print') {
       const examMasters = await query<any[]>(
-        "SELECT id FROM users WHERE role = 'exam_master' AND is_active = TRUE"
+        "SELECT id FROM users WHERE role = 'exam_master' AND is_active = TRUE AND deleted_at IS NULL"
       );
       
       for (const master of examMasters) {
@@ -166,7 +193,7 @@ export async function POST(
       new_status: newStatus,
     });
   } catch (error) {
-    console.error('POST /api/exam-papers/[id]/approve error:', error);
+    console.error('POST /api/exam-papers/[paperId]/approve error:', error);
     return NextResponse.json(
       { error: 'Failed to process approval', details: String(error) },
       { status: 500 }

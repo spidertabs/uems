@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
         c.*,
         d.name as department_name,
         col.name as college_name,
+        col.code as college_code,
         CONCAT(u.first_name, ' ', u.last_name) as hod_name,
         (SELECT COUNT(*) FROM study_units WHERE course_id = c.id AND is_active = TRUE) as study_units_count
       FROM courses c

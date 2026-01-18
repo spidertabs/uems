@@ -10,6 +10,8 @@ interface ExamPaperWithDetails extends ExamPaper {
   course_code: string;
   course_title: string;
   created_by_name: string;
+  hod_name: string | null;
+  dean_name: string | null;
   programmes?: string;
 }
 
@@ -404,6 +406,14 @@ export default function ExamPapersPage() {
                     <span className="flex items-center gap-1">
                       👤 {paper.created_by_name}
                     </span>
+                    {paper.hod_name && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          👔 HOD: {paper.hod_name}
+                        </span>
+                      </>
+                    )}
                     {paper.exam_date && (
                       <>
                         <span>•</span>

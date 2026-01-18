@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/api/exam-papers/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { query, transaction, QueryResult } from '@/lib/db';
+import { ResultSetHeader } from 'mysql2';
+import { query, transaction } from '@/lib/db';
 import { verifyAuth } from '@/lib/auth';
 import type { Course, ExamPaper } from '@/types';
 
@@ -9,6 +11,8 @@ interface ExamPaperRow extends ExamPaper {
   course_code: string;
   course_title: string;
   created_by_name: string;
+  hod_name: string | null;
+  dean_name: string | null;
   programmes?: string;
 }
 
@@ -36,17 +40,25 @@ export async function GET(request: NextRequest) {
         ep.status,
         ep.created_at,
         ep.submitted_at,
+        ep.hod_id,
+        ep.dean_id,
         c.code AS course_code,
         c.title AS course_title,
+        c.department_id,
+        c.college_id,
         CONCAT(creator.first_name, ' ', creator.last_name) AS created_by_name,
+        CONCAT(hod.first_name, ' ', hod.last_name) AS hod_name,
+        CONCAT(dean.first_name, ' ', dean.last_name) AS dean_name,
         ep.created_by,
         GROUP_CONCAT(DISTINCT p.code ORDER BY p.code SEPARATOR ', ') as programmes
       FROM exam_papers ep
       JOIN courses c ON ep.course_id = c.id
       LEFT JOIN users creator ON ep.created_by = creator.id
+      LEFT JOIN users hod ON ep.hod_id = hod.id
+      LEFT JOIN users dean ON ep.dean_id = dean.id
       LEFT JOIN exam_paper_programmes epp ON ep.id = epp.exam_paper_id
       LEFT JOIN programmes p ON epp.programme_id = p.id
-      WHERE 1=1
+      WHERE ep.deleted_at IS NULL
     `;
 
     const params: (string | number)[] = [];
@@ -129,9 +141,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate paper code
-    const courseResult = await query<Course[]>(
-      'SELECT code FROM courses WHERE id = ?',
+    // Get course details including department and college
+    const courseResult = await query<any[]>(
+      'SELECT code, department_id, college_id FROM courses WHERE id = ?',
       [course_id]
     );
 
@@ -139,21 +151,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Course not found' }, { status: 404 });
     }
 
-    const courseCode = courseResult[0].code;
+    const course = courseResult[0];
+    const courseCode = course.code;
     const paper_code = `${courseCode}-${exam_type}-${academic_year}-S${semester}`;
 
-    // Get HOD for the course
+    // Get HOD for the course's department
     const hodResult = await query<{ id: number }[]>(
-      `SELECT u.id 
-       FROM users u 
-       JOIN departments d ON u.department_id = d.id 
-       JOIN courses c ON c.department_id = d.id 
-       WHERE c.id = ? AND u.role = 'hod' 
+      `SELECT id 
+       FROM users 
+       WHERE role = 'hod' 
+       AND department_id = ? 
+       AND is_active = TRUE
+       AND deleted_at IS NULL
        LIMIT 1`,
-      [course_id]
+      [course.department_id]
     );
 
     const hod_id = hodResult.length > 0 ? hodResult[0].id : null;
+
+    // Get Dean for the course's college
+    const deanResult = await query<{ id: number }[]>(
+      `SELECT id 
+       FROM users 
+       WHERE role = 'dean' 
+       AND college_id = ? 
+       AND is_active = TRUE
+       AND deleted_at IS NULL
+       LIMIT 1`,
+      [course.college_id]
+    );
+
+    const dean_id = deanResult.length > 0 ? deanResult[0].id : null;
 
     // Use transaction to create paper and assign programmes atomically
     const paper_id = await transaction(async (connection) => {
@@ -161,8 +189,8 @@ export async function POST(request: NextRequest) {
         INSERT INTO exam_papers (
           paper_code, course_id, created_by, exam_type,
           academic_year, semester, exam_date, duration,
-          instructions, status, hod_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)
+          instructions, status, hod_id, dean_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)
       `;
 
       const [result] = await connection.execute(insertSql, [
@@ -176,9 +204,10 @@ export async function POST(request: NextRequest) {
         duration || null,
         instructions || null,
         hod_id,
+        dean_id,
       ]);
 
-      const newPaperId = (result as QueryResult).insertId;
+      const newPaperId = (result as ResultSetHeader).insertId;
 
       // Insert programme associations
       if (programme_ids.length > 0) {

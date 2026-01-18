@@ -1,20 +1,12 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-// src/app/layout.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Inter } from 'next/font/google';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import headerNavLinks from '@/data/headerNavLinks';
 import './globals.css';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  display: 'swap',
-});
 
 interface User {
   id: number;
@@ -33,7 +25,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   const isAuthRoute = pathname.startsWith('/auth');
 
-  // Initialize theme from localStorage
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -70,26 +61,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   };
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      setUser(null);
-      router.push('/auth/login');
-      router.refresh();
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setUser(null);
+    router.push('/auth/login');
+    router.refresh();
   };
 
   const toggleTheme = () => {
-    if (darkMode) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-      setDarkMode(false);
-    } else {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-      setDarkMode(true);
-    }
+    const isDark = !darkMode;
+    setDarkMode(isDark);
+    document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
   };
 
   const filteredNavLinks = user
@@ -98,9 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en">
-      <body
-        className={`${inter.variable} min-h-screen bg-gray-50 dark:bg-gray-900`}
-      >
+      <body className="min-h-screen bg-gray-50 font-sans dark:bg-gray-900">
         {isAuthRoute ? (
           children
         ) : loading ? (
@@ -109,7 +89,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         ) : (
           <div className="min-h-screen">
-            {/* Top Navigation */}
             <nav className="fixed top-0 z-30 w-full border-b bg-white dark:bg-gray-800">
               <div className="flex h-16 items-center justify-between px-4">
                 <div className="flex items-center">

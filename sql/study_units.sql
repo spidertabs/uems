@@ -3962,4 +3962,3 @@ INSERT INTO study_units (course_id, code, name, description, sequence_order, lea
 (304, 'PHDPM2204-U08', 'Research Integrity', 'Academic honesty, transparency, and ethical research conduct throughout dissertation', 8, 'Maintain academic honesty; Ensure transparency; Conduct ethical research; Uphold research integrity', NULL),
 (304, 'PHDPM2204-U09', 'Dissertation Defense Preparation', 'Defense strategies, presentation preparation, and examination anticipation', 9, 'Develop defense strategies; Prepare presentations; Anticipate examination; Get ready for dissertation defense', NULL),
 (304, 'PHDPM2204-U10', 'Publication and Dissemination', 'Journal article preparation, research dissemination, and knowledge sharing strategies', 10, 'Prepare journal articles; Disseminate research; Share knowledge; Publish dissertation findings', NULL);
-

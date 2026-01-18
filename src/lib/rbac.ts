@@ -15,11 +15,13 @@ export const ROLES = {
   LECTURER: 'lecturer',
 } as const;
 
+export type UserRole = 'admin' | 'exam_master' | 'dean' | 'hod' | 'lecturer';
+
 // =====================================================
 // PERMISSIONS BY ROLE
 // =====================================================
 
-export const ROLE_PERMISSIONS = {
+export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   admin: [
     // User Management
     'manage_users',
@@ -225,7 +227,8 @@ export const ROLE_PERMISSIONS = {
 export function hasPermission(user: UserPayload | null, permission: string): boolean {
   if (!user) return false;
 
-  const permissions = ROLE_PERMISSIONS[user.role] || [];
+  const userRole = user.role as UserRole;
+  const permissions = ROLE_PERMISSIONS[userRole] || [];
   return permissions.includes(permission);
 }
 
@@ -250,9 +253,9 @@ export function hasAllPermissions(user: UserPayload | null, permissions: string[
 /**
  * Check if user is in one of the specified roles
  */
-export function hasRole(user: UserPayload | null, roles: string[]): boolean {
+export function hasRole(user: UserPayload | null, roles: UserRole[]): boolean {
   if (!user) return false;
-  return roles.includes(user.role);
+  return roles.includes(user.role as UserRole);
 }
 
 // =====================================================
@@ -271,17 +274,18 @@ export async function canAccessCollege(userId: number, collegeId: number): Promi
 
     if (!users || users.length === 0) return false;
     const user = users[0];
+    const userRole = user.role as UserRole;
 
     // Admin can access everything
-    if (user.role === 'admin') return true;
+    if (userRole === 'admin') return true;
 
     // Dean can access their college
-    if (user.role === 'dean') {
+    if (userRole === 'dean') {
       return user.college_id === collegeId;
     }
 
     // HOD can view colleges
-    if (user.role === 'hod') {
+    if (userRole === 'hod') {
       return true; // View only
     }
 
@@ -304,9 +308,10 @@ export async function canAccessDepartment(userId: number, departmentId: number):
 
     if (!users || users.length === 0) return false;
     const user = users[0];
+    const userRole = user.role as UserRole;
 
     // Admin can access everything
-    if (user.role === 'admin') return true;
+    if (userRole === 'admin') return true;
 
     // Get department's college
     const departments = await query<any[]>(
@@ -318,12 +323,12 @@ export async function canAccessDepartment(userId: number, departmentId: number):
     const department = departments[0];
 
     // Dean can access departments in their college
-    if (user.role === 'dean') {
+    if (userRole === 'dean') {
       return user.college_id === department.college_id;
     }
 
     // HOD can access their department
-    if (user.role === 'hod') {
+    if (userRole === 'hod') {
       return user.department_id === departmentId;
     }
 
@@ -346,9 +351,10 @@ export async function canAccessProgramme(userId: number, programmeId: number): P
 
     if (!users || users.length === 0) return false;
     const user = users[0];
+    const userRole = user.role as UserRole;
 
     // Admin can access everything
-    if (user.role === 'admin') return true;
+    if (userRole === 'admin') return true;
 
     // Get programme details
     const programmes = await query<any[]>(
@@ -360,12 +366,12 @@ export async function canAccessProgramme(userId: number, programmeId: number): P
     const programme = programmes[0];
 
     // Dean can access programmes in their college
-    if (user.role === 'dean') {
+    if (userRole === 'dean') {
       return user.college_id === programme.college_id;
     }
 
     // HOD can access programmes in their department
-    if (user.role === 'hod') {
+    if (userRole === 'hod') {
       return user.department_id === programme.department_id;
     }
 
@@ -389,9 +395,10 @@ export async function canAccessCourse(userId: number, courseId: number): Promise
 
     if (!users || users.length === 0) return false;
     const user = users[0];
+    const userRole = user.role as UserRole;
 
     // Admin can access everything
-    if (user.role === 'admin') return true;
+    if (userRole === 'admin') return true;
 
     // Get course details
     const courses = await query<any[]>(
@@ -403,7 +410,7 @@ export async function canAccessCourse(userId: number, courseId: number): Promise
     const course = courses[0];
 
     // Check based on role
-    switch (user.role) {
+    switch (userRole) {
       case 'exam_master':
         return true; // Exam master can access all courses
 
@@ -460,8 +467,9 @@ export async function canViewPaper(userId: number, paperId: number): Promise<boo
 
     const user = users[0];
     const paper = papers[0];
+    const userRole = user.role as UserRole;
 
-    switch (user.role) {
+    switch (userRole) {
       case 'admin':
       case 'exam_master':
         return true;
@@ -509,9 +517,10 @@ export async function canApprovePaper(userId: number, paperId: number): Promise<
 
     const user = users[0];
     const paper = papers[0];
+    const userRole = user.role as UserRole;
 
     // Check based on role and paper status
-    switch (user.role) {
+    switch (userRole) {
       case 'hod':
         return (
           user.department_id === paper.department_id &&
@@ -576,11 +585,12 @@ export async function canPrintPaper(userId: number, paperId: number): Promise<bo
 
     const user = users[0];
     const paper = papers[0];
+    const userRole = user.role as UserRole;
 
     // Only exam_master and admin can print
     // Paper must be in ready_for_print status
     return (
-      ['exam_master', 'admin'].includes(user.role) &&
+      (userRole === 'exam_master' || userRole === 'admin') &&
       ['ready_for_print', 'printing'].includes(paper.status)
     );
   } catch (error) {
@@ -606,9 +616,10 @@ export async function hasQuestionPermission(
 
     if (!users || users.length === 0) return false;
     const user = users[0];
+    const userRole = user.role as UserRole;
 
     // HOD, Dean, Admin can add questions to any course in their scope
-    if (['hod', 'dean', 'admin'].includes(user.role)) {
+    if (userRole === 'hod' || userRole === 'dean' || userRole === 'admin') {
       return await canAccessCourse(lecturerId, courseId);
     }
 
@@ -648,12 +659,13 @@ export async function canEditQuestion(userId: number, questionId: number): Promi
 
     const user = users[0];
     const question = questions[0];
+    const userRole = user.role as UserRole;
 
     // Admin can edit all
-    if (user.role === 'admin') return true;
+    if (userRole === 'admin') return true;
 
     // HOD can edit questions in their department courses
-    if (user.role === 'hod') {
+    if (userRole === 'hod') {
       return await canAccessCourse(userId, question.course_id);
     }
 
@@ -712,7 +724,7 @@ export async function getCollegeDean(collegeId: number): Promise<number | null> 
  */
 export async function getDepartmentUsersByRole(
   departmentId: number,
-  role: string
+  role: UserRole
 ): Promise<number[]> {
   try {
     const users = await query<any[]>(
@@ -750,29 +762,31 @@ export async function canManageUser(managerId: number, targetUserId: number): Pr
 
     const manager = managers[0];
     const target = targets[0];
+    const managerRole = manager.role as UserRole;
+    const targetRole = target.role as UserRole;
 
     // Admin can manage everyone
-    if (manager.role === 'admin') return true;
+    if (managerRole === 'admin') return true;
 
     // Can't manage users of equal or higher role
-    const roleHierarchy = ['lecturer', 'hod', 'dean', 'exam_master', 'admin'];
-    const managerLevel = roleHierarchy.indexOf(manager.role);
-    const targetLevel = roleHierarchy.indexOf(target.role);
+    const roleHierarchy: UserRole[] = ['lecturer', 'hod', 'dean', 'exam_master', 'admin'];
+    const managerLevel = roleHierarchy.indexOf(managerRole);
+    const targetLevel = roleHierarchy.indexOf(targetRole);
 
     if (targetLevel >= managerLevel) return false;
 
     // HOD can manage lecturers in their department
-    if (manager.role === 'hod') {
+    if (managerRole === 'hod') {
       return (
-        target.role === 'lecturer' && 
+        targetRole === 'lecturer' && 
         manager.department_id === target.department_id
       );
     }
 
     // Dean can manage HODs and lecturers in their college
-    if (manager.role === 'dean') {
+    if (managerRole === 'dean') {
       return (
-        ['hod', 'lecturer'].includes(target.role) &&
+        (targetRole === 'hod' || targetRole === 'lecturer') &&
         manager.college_id === target.college_id
       );
     }

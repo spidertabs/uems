@@ -1,4 +1,5 @@
 INSERT INTO questions (course_id, study_unit_id, created_by, question_type, difficulty_level, question_text, options, correct_answer, marks, time_allocation, learning_outcome, keywords, bloom_taxonomy, tags, usage_count, is_active, approved_by, approved_at) VALUES
+-- Study Unit 1: Introduction to English Grammar (18 questions)
 -- 3 Multiple Choice
 (1, 1, 93, 'multiple_choice', 'easy', 'Which of the following is NOT a traditional part of speech in English grammar?', JSON_ARRAY('Noun','Verb','Adjective','Paragraph'), 'Paragraph', 1, 10, 'Identify and correctly use parts of speech', 'parts_of_speech,grammar_fundamentals', 'remember', JSON_ARRAY('grammar','mcq','intro'), 0, TRUE, 25, NULL),
 (1, 1, 94, 'multiple_choice', 'medium', 'What is the function of a conjunction in a sentence?', JSON_ARRAY('To show action','To describe a noun','To connect words or phrases','To replace a noun'), 'To connect words or phrases', 1, 15, 'Identify and correctly use parts of speech', 'conjunctions,sentence_structure', 'understand', JSON_ARRAY('grammar','parts_of_speech'), 0, TRUE, 25, NULL),
