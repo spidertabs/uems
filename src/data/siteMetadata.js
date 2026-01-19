@@ -1,7 +1,7 @@
 // src/data/siteMetadata.ts
 const siteMetadata = {
   title: 'UEMS - University Exam Management System',
-  author: 'Kampala International University',
+  author: 'Spidertabs',
   headerTitle: 'UEMS',
   description:
     'University Exam Management System for managing exam papers, question banks, and approval workflows',
@@ -9,7 +9,6 @@ const siteMetadata = {
   theme: 'system',
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
   siteLogo: '/static/images/kiu-logo.png',
-  socialBanner: '/static/images/kiu-seal.png',
   email: 'exams@kiu.ac.ug',
   github: '',
   twitter: '',

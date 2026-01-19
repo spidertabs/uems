@@ -345,6 +345,31 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="description" content="University Exam Management System for managing exam papers, question banks, and approval workflows" />
+        <meta name="author" content="Kampala International University" />
+        <meta name="theme-color" content="#3B82F6" />
+        
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={user ? `${user.name} - ${user.role.replace('_', ' ').toUpperCase()} | UEMS` : 'UEMS - University Exam Management System'} />
+        <meta property="og:description" content="University Exam Management System for managing exam papers, question banks, and approval workflows" />
+        <meta property="og:site_name" content="UEMS" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={user ? `${user.name} - ${user.role.replace('_', ' ').toUpperCase()} | UEMS` : 'UEMS - University Exam Management System'} />
+        <meta name="twitter:description" content="University Exam Management System for managing exam papers, question banks, and approval workflows" />
+        <meta name="twitter:image" content="/static/images/kiu-seal.png" />
+        
+        {/* Favicon */}
+        <link rel="icon" type="image/png" href="/static/images/kiu-logo.png" />
+        <link rel="apple-touch-icon" href="/static/images/kiu-logo.png" />
+        
+        <title>{user ? `${user.name} - ${user.role.replace('_', ' ').toUpperCase()} | UEMS` : 'UEMS - University Exam Management System'}</title>
+      </head>
       <body className="min-h-screen bg-gray-50 font-sans antialiased dark:bg-gray-900">
         {isAuthRoute ? (
           children
