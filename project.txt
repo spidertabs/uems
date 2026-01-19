@@ -10,7 +10,6 @@
 | ORM / DB Tool | `mysql2/promise` (raw SQL) |
 | Shadcn        | tailwind v4                |
 
-
 i.e Lecturer → Question Bank → Paper Creation → Internal Review → Submit to HOD
 
 HOD Receives Paper → Quality Review → Provide Feedback → 

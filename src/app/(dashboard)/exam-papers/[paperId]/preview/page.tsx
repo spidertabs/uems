@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable react-hooks/exhaustive-deps */
-// src/app/exam-papers/[paperId]/preview/page.tsx
+// src/app/(dashboard)/exam-papers/[paperId]/preview/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -356,6 +356,10 @@ export default function PreviewExamPaperPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
                 <p className="text-justify text-gray-900 dark:text-white print:text-black">
+                  {/* Add True/False prefix for true_false questions */}
+                  {question.question_type === 'true_false' && (
+                    <span className="font-semibold">True/False: </span>
+                  )}
                   {question.question_text}
                 </p>
 

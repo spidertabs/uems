@@ -7,7 +7,7 @@ import { verifyAuth } from '@/lib/auth';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { paperId: string } }
+  { params }: { params: Promise<{ paperId: string }> } // CHANGED: params is now a Promise
 ) {
   try {
     const session = await verifyAuth(request);
@@ -16,16 +16,17 @@ export async function POST(
     }
 
     const { id: userId, role } = session;
-
     if (!['exam_master', 'admin'].includes(role)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const paperId = parseInt(params.paperId);
+    // CRITICAL FIX: Await params before accessing paperId
+    const { paperId: paperIdStr } = await params;
+    const paperId = parseInt(paperIdStr);
 
     // Verify paper exists and is in ready_for_print status
     const paperCheck = await query<any[]>(
-      `SELECT status FROM exam_papers WHERE id = ? AND deleted_at IS NULL`,
+      `SELECT status, paper_code FROM exam_papers WHERE id = ? AND deleted_at IS NULL`,
       [paperId]
     );
 
@@ -35,7 +36,7 @@ export async function POST(
 
     if (paperCheck[0].status !== 'ready_for_print') {
       return NextResponse.json(
-        { error: 'Paper is not ready for printing' },
+        { error: `Paper is not ready for printing. Current status: ${paperCheck[0].status}` },
         { status: 400 }
       );
     }
@@ -80,6 +81,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: 'Printing started successfully',
+      paper_code: paperCheck[0].paper_code,
     });
   } catch (error) {
     console.error('POST /api/print-queue/[paperId]/start error:', error);

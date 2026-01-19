@@ -211,7 +211,7 @@ export default function PreferencesPage() {
                       dashboard_layout: e.target.value as 'compact' | 'comfortable',
                     })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="compact">Compact</option>
                   <option value="comfortable">Comfortable</option>
@@ -304,7 +304,7 @@ export default function PreferencesPage() {
                       items_per_page: parseInt(e.target.value),
                     })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>
@@ -325,7 +325,7 @@ export default function PreferencesPage() {
                       default_exam_type: e.target.value as 'TEST' | 'CAT' | 'FINAL',
                     })
                   }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="TEST">Test</option>
                   <option value="CAT">CAT</option>
@@ -398,13 +398,13 @@ export default function PreferencesPage() {
             </button>
             <button
               onClick={handleReset}
-              className="rounded-lg border border-gray-300 px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="rounded-lg border border-gray-300 bg-white px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Reset to Defaults
             </button>
             <Link
               href="/settings"
-              className="rounded-lg border border-gray-300 px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="rounded-lg border border-gray-300 bg-white px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Cancel
             </Link>

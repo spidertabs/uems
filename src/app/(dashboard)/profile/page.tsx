@@ -1,747 +1,622 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// src/app/profile/page.tsx
+// src/app/(dashboard)/profile/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-interface UserProfile {
+interface User {
   id: number;
-  email: string;
   first_name: string;
   last_name: string;
+  email: string;
+  phone?: string;
   role: string;
-  phone: string | null;
-  department_name: string | null;
-  college_name: string | null;
-  is_active: boolean;
-  last_login: string | null;
+  department_id?: number;
+  college_id?: number;
   created_at: string;
+  last_login?: string;
+  is_active: boolean;
 }
 
-interface ProfileStats {
-  papers_created: number;
-  questions_created: number;
+interface Department {
+  id: number;
+  name: string;
+  code: string;
+  college_name?: string;
+}
+
+interface College {
+  id: number;
+  name: string;
+  code: string;
+}
+
+interface Stats {
+  total_papers: number;
+  total_questions: number;
   papers_approved: number;
-  pending_approvals: number;
-  permissions_granted: number;
-  total_contributions: number;
+  papers_pending: number;
+  questions_used: number;
+  active_courses: number;
+}
+
+interface RecentActivity {
+  id: number;
+  type: string;
+  title: string;
+  description: string;
+  timestamp: string;
+  icon: string;
 }
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [stats, setStats] = useState<ProfileStats | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [department, setDepartment] = useState<Department | null>(null);
+  const [college, setCollege] = useState<College | null>(null);
+  const [stats, setStats] = useState<Stats>({
+    total_papers: 0,
+    total_questions: 0,
+    papers_approved: 0,
+    papers_pending: 0,
+    questions_used: 0,
+    active_courses: 0,
+  });
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState('profile');
-  
-  // Form state
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    phone: '',
-  });
-
-  const [passwordData, setPasswordData] = useState({
-    current_password: '',
-    new_password: '',
-    confirm_password: ''
-  });
+  const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'statistics'>('overview');
 
   useEffect(() => {
-    fetchProfile();
-    fetchStats();
+    fetchProfileData();
   }, []);
 
-  const fetchProfile = async () => {
+  const fetchProfileData = async () => {
     try {
-      const res = await fetch('/api/auth/me');
-      
-      // Log response details for debugging
-      console.log('Response status:', res.status);
-      console.log('Response headers:', res.headers);
-      
-      if (!res.ok) {
-        if (res.status === 401) {
-          router.push('/auth/login');
-          return;
+      const [userRes, statsRes, activityRes] = await Promise.all([
+        fetch('/api/auth/me'),
+        fetch('/api/stats').catch(() => null),
+        fetch('/api/stats/recent-activity?limit=10').catch(() => null),
+      ]);
+
+      if (userRes.status === 401) {
+        router.push('/auth/login');
+        return;
+      }
+
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        setUser(userData.user);
+
+        // Fetch department and college details
+        if (userData.user.department_id) {
+          const deptRes = await fetch(`/api/departments/${userData.user.department_id}`);
+          if (deptRes.ok) {
+            const deptData = await deptRes.json();
+            setDepartment(deptData.department);
+          }
         }
-        // Try to get error message
-        const text = await res.text();
-        console.error('Response text:', text);
-        throw new Error('Failed to fetch profile');
+
+        if (userData.user.college_id) {
+          const collegeRes = await fetch(`/api/colleges/${userData.user.college_id}`);
+          if (collegeRes.ok) {
+            const collegeData = await collegeRes.json();
+            setCollege(collegeData.college);
+          }
+        }
       }
-      
-      const data = await res.json();
-      console.log('Profile data:', data);
-      
-      if (!data.success || !data.user) {
-        throw new Error('Invalid response format');
+
+      if (statsRes && statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData.data || statsData);
       }
-      
-      setProfile(data.user);
-      setFormData({
-        first_name: data.user.first_name,
-        last_name: data.user.last_name,
-        phone: data.user.phone || '',
-      });
-    } catch (err: any) {
-      console.error('Fetch profile error:', err);
-      setError('Failed to load profile: ' + err.message);
+
+      if (activityRes && activityRes.ok) {
+        const activityData = await activityRes.json();
+        setRecentActivity(activityData.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      const res = await fetch('/api/stats/profile');
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch stats:', err);
-    }
-  };
-
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setSaving(true);
-
-    try {
-      const res = await fetch('/api/auth/me', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      console.log('Update response status:', res.status);
-      
-      // Get response text first
-      const text = await res.text();
-      console.log('Update response text:', text);
-      
-      // Try to parse as JSON
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        throw new Error('Invalid response from server. Check console for details.');
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to update profile');
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Update failed');
-      }
-
-      setSuccess('Profile updated successfully');
-      setEditing(false);
-      await fetchProfile();
-      
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
-      console.error('Update profile error:', err);
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (passwordData.new_password !== passwordData.confirm_password) {
-      setError('New passwords do not match');
-      return;
-    }
-
-    if (passwordData.new_password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      const res = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          current_password: passwordData.current_password,
-          new_password: passwordData.new_password
-        })
-      });
-
-      const text = await res.text();
-      console.log('Change password response:', text);
-      
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        throw new Error('Invalid response from server');
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to change password');
-      }
-
-      setSuccess('Password changed successfully');
-      setChangingPassword(false);
-      setPasswordData({
-        current_password: '',
-        new_password: '',
-        confirm_password: ''
-      });
-      
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
-      console.error('Change password error:', err);
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const getRoleBadgeColor = (role: string) => {
     const colors: Record<string, string> = {
-      admin: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-      exam_master: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-      dean: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      hod: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-      lecturer: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      admin: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
+      exam_master: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-400',
+      dean: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400',
+      hod: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400',
+      lecturer: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400',
     };
-    return colors[role] || colors.lecturer;
+    return colors[role] || 'bg-gray-100 text-gray-800';
   };
 
-  const getStatsCards = () => {
-    if (!stats) return [];
+  const getRoleIcon = (role: string) => {
+    const icons: Record<string, string> = {
+      admin: '👑',
+      exam_master: '🖨️',
+      dean: '🎓',
+      hod: '📚',
+      lecturer: '👨‍🏫',
+    };
+    return icons[role] || '👤';
+  };
 
-    const cards = [
-      {
-        title: 'Papers Created',
-        value: stats.papers_created,
-        icon: '📄',
-        color: 'bg-blue-500',
-      },
-      {
-        title: 'Questions Created',
-        value: stats.questions_created,
-        icon: '📝',
-        color: 'bg-green-500',
-      },
-    ];
+  const getInitials = () => {
+    if (!user) return '?';
+    return `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
+  };
 
-    if (profile?.role === 'hod' || profile?.role === 'dean') {
-      cards.push({
-        title: 'Papers Approved',
-        value: stats.papers_approved,
-        icon: '✅',
-        color: 'bg-purple-500',
-      });
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
 
-    if (profile?.role === 'hod') {
-      cards.push({
-        title: 'Permissions Granted',
-        value: stats.permissions_granted,
-        icon: '🔐',
-        color: 'bg-orange-500',
-      });
-    }
+  const getRelativeTime = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
 
-    return cards;
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center lg:pl-64">
+      <div className="flex h-96 items-center justify-center">
         <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  if (!profile) {
-    return (
-      <div className="flex h-96 items-center justify-center lg:pl-64">
-        <div className="text-center">
-          <div className="mb-3 text-5xl">⚠️</div>
-          <p className="text-gray-600 dark:text-gray-400">Failed to load profile</p>
-          {error && (
-            <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8 lg:pl-64">
-      {/* Page Header */}
-      <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white shadow-xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="mb-2 text-3xl font-bold">
-              My Profile 👤
-            </h1>
-            <p className="text-blue-100">
-              Manage your account settings and preferences
-            </p>
+    <div className="space-y-6 lg:pl-64">
+      {/* Header with Profile Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 shadow-xl">
+        <div className="absolute right-0 top-0 h-64 w-64 translate-x-32 -translate-y-32 transform rounded-full bg-white/10 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 h-64 w-64 -translate-x-32 translate-y-32 transform rounded-full bg-white/10 blur-3xl"></div>
+        
+        <div className="relative flex flex-col items-center gap-6 sm:flex-row">
+          {/* Profile Picture */}
+          <div className="relative">
+            <div className="flex h-32 w-32 items-center justify-center rounded-full bg-white text-5xl font-bold text-blue-600 shadow-2xl ring-4 ring-white/20">
+              {getInitials()}
+            </div>
+            <div className={`absolute bottom-2 right-2 h-6 w-6 rounded-full border-4 border-white ${user?.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
           </div>
-          <Link
-            href="/"
-            className="rounded-lg bg-white/20 px-4 py-2 text-sm font-medium backdrop-blur-sm transition-colors hover:bg-white/30"
-          >
-            ← Back to Dashboard
-          </Link>
+
+          {/* User Info */}
+          <div className="flex-1 text-center sm:text-left">
+            <h1 className="mb-2 text-3xl font-bold text-white">
+              {user?.first_name} {user?.last_name}
+            </h1>
+            <p className="mb-3 text-lg text-blue-100">{user?.email}</p>
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+              <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold ${getRoleBadgeColor(user?.role || '')}`}>
+                <span>{getRoleIcon(user?.role || '')}</span>
+                {user?.role.replace('_', ' ').toUpperCase()}
+              </span>
+              {user?.is_active && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                  ✓ Active
+                </span>
+              )}
+              {department && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold text-white">
+                  📚 {department.code}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Edit Button */}
+          <div>
+            <Link
+              href="/settings/profile"
+              className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-medium text-blue-600 shadow-lg transition hover:bg-blue-50"
+            >
+              <span>✏️</span>
+              Edit Profile
+            </Link>
+          </div>
         </div>
       </div>
-
-      {/* Alerts */}
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-          <div className="flex items-center">
-            <span className="mr-2 text-xl">⚠️</span>
-            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {success && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
-          <div className="flex items-center">
-            <span className="mr-2 text-xl">✅</span>
-            <p className="text-sm text-green-800 dark:text-green-200">{success}</p>
-          </div>
-        </div>
-      )}
 
       {/* Stats Cards */}
-      {stats && (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {getStatsCards().map((card) => (
-            <div
-              key={card.title}
-              className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800"
-            >
-              <div className="absolute right-0 top-0 h-24 w-24 translate-x-8 -translate-y-8 transform rounded-full bg-gradient-to-br from-white/10 to-transparent" />
-              <div className="relative">
-                <div className="mb-4 flex items-center justify-between">
-                  <div
-                    className={`${card.color} flex h-12 w-12 items-center justify-center rounded-lg text-2xl shadow-lg`}
-                  >
-                    {card.icon}
-                  </div>
-                  <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                    {card.value}
-                  </span>
-                </div>
-                <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  {card.title}
-                </h3>
-              </div>
-            </div>
-          ))}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-md dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-2 text-2xl">📄</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+            {stats.total_papers}
+          </div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Total Papers</div>
         </div>
-      )}
 
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'profile'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
-          >
-            📋 Profile Information
-          </button>
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'security'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
-          >
-            🔒 Security
-          </button>
-          <button
-            onClick={() => setActiveTab('activity')}
-            className={`border-b-2 px-1 py-4 text-sm font-medium transition-colors ${
-              activeTab === 'activity'
-                ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
-          >
-            📊 Activity
-          </button>
-        </nav>
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-md dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-2 text-2xl">❓</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+            {stats.total_questions}
+          </div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Questions</div>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-md dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-2 text-2xl">✅</div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+            {stats.papers_approved}
+          </div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Approved</div>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-md dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-2 text-2xl">⏳</div>
+          <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+            {stats.papers_pending}
+          </div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Pending</div>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-md dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-2 text-2xl">📊</div>
+          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+            {stats.questions_used}
+          </div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Q Used</div>
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-md dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-2 text-2xl">📚</div>
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            {stats.active_courses}
+          </div>
+          <div className="text-xs text-gray-600 dark:text-gray-400">Courses</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'overview'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900 dark:text-gray-400'
+          }`}
+        >
+          📋 Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('activity')}
+          className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'activity'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900 dark:text-gray-400'
+          }`}
+        >
+          🔔 Recent Activity
+        </button>
+        <button
+          onClick={() => setActiveTab('statistics')}
+          className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition ${
+            activeTab === 'statistics'
+              ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900 dark:text-gray-400'
+          }`}
+        >
+          📊 Statistics
+        </button>
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-6">
-        {/* Profile Information Tab */}
-        {activeTab === 'profile' && (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Profile Information
-              </h2>
-              {!editing && (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                >
-                  ✏️ Edit Profile
-                </button>
-              )}
-            </div>
-
-            {editing ? (
-              <form onSubmit={handleUpdateProfile} className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Main Content */}
+        <div className="lg:col-span-2">
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              {/* Personal Information */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
+                <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                  Personal Information
+                </h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      First Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.first_name}
-                      onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
+                    <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">First Name</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{user?.first_name}</p>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Last Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.last_name}
-                      onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
+                    <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">Last Name</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{user?.last_name}</p>
                   </div>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+256 700 000 000"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {saving ? '💾 Saving...' : '💾 Save Changes'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(false);
-                      setFormData({
-                        first_name: profile.first_name,
-                        last_name: profile.last_name,
-                        phone: profile.phone || '',
-                      });
-                      setError('');
-                    }}
-                    className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Full Name
-                    </label>
-                    <p className="text-lg font-medium text-gray-900 dark:text-white">
-                      {profile.first_name} {profile.last_name}
+                    <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">Email</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{user?.email}</p>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">Phone</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {user?.phone || 'Not provided'}
                     </p>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Email Address
-                    </label>
-                    <p className="text-lg font-medium text-gray-900 dark:text-white">
-                      {profile.email}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Role
-                    </label>
-                    <span className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${getRoleBadgeColor(profile.role)}`}>
-                      {profile.role.replace('_', ' ').toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Phone Number
-                    </label>
-                    <p className="text-lg font-medium text-gray-900 dark:text-white">
-                      {profile.phone || 'Not provided'}
-                    </p>
-                  </div>
-                  {profile.department_name && (
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
-                        Department
-                      </label>
-                      <p className="text-lg font-medium text-gray-900 dark:text-white">
-                        {profile.department_name}
-                      </p>
-                    </div>
-                  )}
-                  {profile.college_name && (
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
-                        College
-                      </label>
-                      <p className="text-lg font-medium text-gray-900 dark:text-white">
-                        {profile.college_name}
-                      </p>
-                    </div>
-                  )}
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Account Status
-                    </label>
-                    <span className={`inline-block rounded-full px-3 py-1 text-sm font-medium ${
-                      profile.is_active
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    }`}>
-                      {profile.is_active ? '✓ Active' : '✗ Inactive'}
-                    </span>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Member Since
-                    </label>
-                    <p className="text-lg font-medium text-gray-900 dark:text-white">
-                      {new Date(profile.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                </div>
-
-                {profile.last_login && (
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      <strong>Last Login:</strong> {new Date(profile.last_login).toLocaleString()}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Security Tab */}
-        {activeTab === 'security' && (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Security Settings
-              </h2>
-            </div>
-
-            {!changingPassword ? (
-              <div className="space-y-4">
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-900/50">
-                  <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-                    Password
-                  </h3>
-                  <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                    Manage your password to keep your account secure
-                  </p>
-                  <button
-                    onClick={() => setChangingPassword(true)}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                  >
-                    🔑 Change Password
-                  </button>
-                </div>
-
-                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
-                  <div className="flex items-start">
-                    <span className="mr-2 text-xl">💡</span>
-                    <div>
-                      <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
-                        Password Requirements
-                      </h4>
-                      <ul className="mt-2 space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
-                        <li>• Minimum 8 characters</li>
-                        <li>• Mix of uppercase and lowercase letters recommended</li>
-                        <li>• Include numbers and special characters for better security</li>
-                      </ul>
-                    </div>
                   </div>
                 </div>
               </div>
-            ) : (
-              <form onSubmit={handleChangePassword} className="space-y-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Current Password *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={passwordData.current_password}
-                    onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
 
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    New Password *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    value={passwordData.new_password}
-                    onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
+              {/* Organization Information */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
+                <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                  Organization Information
+                </h3>
+                <div className="space-y-4">
+                  <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-900/50">
+                    <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">Role</p>
+                    <p className="font-semibold capitalize text-gray-900 dark:text-white">
+                      {user?.role.replace('_', ' ')}
+                    </p>
+                  </div>
 
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Confirm New Password *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={8}
-                    value={passwordData.confirm_password}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
+                  {department && (
+                    <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-900/50">
+                      <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">Department</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {department.code} - {department.name}
+                      </p>
+                    </div>
+                  )}
 
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                  {college && (
+                    <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-900/50">
+                      <p className="mb-1 text-sm text-gray-600 dark:text-gray-400">College</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {college.code} - {college.name}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Links */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
+                <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                  Quick Links
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <Link
+                    href="/exam-papers"
+                    className="rounded-lg border border-gray-200 p-4 text-center transition hover:border-blue-500 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-500 dark:hover:bg-blue-900/20"
                   >
-                    {saving ? '🔄 Changing...' : '🔑 Change Password'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setChangingPassword(false);
-                      setPasswordData({
-                        current_password: '',
-                        new_password: '',
-                        confirm_password: ''
-                      });
-                      setError('');
-                    }}
-                    className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                    <div className="mb-2 text-2xl">📄</div>
+                    <div className="text-sm font-medium">My Papers</div>
+                  </Link>
+                  <Link
+                    href="/question-bank"
+                    className="rounded-lg border border-gray-200 p-4 text-center transition hover:border-blue-500 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-500 dark:hover:bg-blue-900/20"
                   >
-                    Cancel
-                  </button>
+                    <div className="mb-2 text-2xl">❓</div>
+                    <div className="text-sm font-medium">Questions</div>
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="rounded-lg border border-gray-200 p-4 text-center transition hover:border-blue-500 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-500 dark:hover:bg-blue-900/20"
+                  >
+                    <div className="mb-2 text-2xl">⚙️</div>
+                    <div className="text-sm font-medium">Settings</div>
+                  </Link>
+                  <Link
+                    href="/notifications/inbox"
+                    className="rounded-lg border border-gray-200 p-4 text-center transition hover:border-blue-500 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-500 dark:hover:bg-blue-900/20"
+                  >
+                    <div className="mb-2 text-2xl">📬</div>
+                    <div className="text-sm font-medium">Notifications</div>
+                  </Link>
                 </div>
-              </form>
-            )}
-          </div>
-        )}
+              </div>
+            </div>
+          )}
 
-        {/* Activity Tab */}
-        {activeTab === 'activity' && (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
-            <h2 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">
-              Account Activity
-            </h2>
-            
-            <div className="space-y-4">
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/50">
-                <h3 className="mb-2 font-semibold text-gray-900 dark:text-white">
+          {activeTab === 'activity' && (
+            <div className="rounded-xl border border-gray-200 bg-white shadow-md dark:border-gray-700 dark:bg-gray-800">
+              <div className="border-b border-gray-200 p-6 dark:border-gray-700">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Recent Activity
                 </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  View your recent actions and activities in the system
-                </p>
-                <Link
-                  href="/audit"
-                  className="mt-3 inline-block text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                >
-                  View Full Activity Log →
-                </Link>
+              </div>
+              {recentActivity.length > 0 ? (
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {recentActivity.map((activity) => (
+                    <div key={activity.id} className="p-4 transition hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <div className="flex items-start gap-3">
+                        <div className="text-2xl">{activity.icon}</div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white">
+                            {activity.title}
+                          </h4>
+                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            {activity.description}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {getRelativeTime(activity.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-12 text-center">
+                  <div className="mb-3 text-5xl">📭</div>
+                  <p className="text-gray-600 dark:text-gray-400">No recent activity</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'statistics' && (
+            <div className="space-y-6">
+              {/* Performance Overview */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
+                <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                  Performance Overview
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Papers Approval Rate</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {stats.total_papers > 0
+                          ? Math.round((stats.papers_approved / stats.total_papers) * 100)
+                          : 0}
+                        %
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                      <div
+                        className="h-full bg-green-500"
+                        style={{
+                          width: `${
+                            stats.total_papers > 0
+                              ? (stats.papers_approved / stats.total_papers) * 100
+                              : 0
+                          }%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Question Usage Rate</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {stats.total_questions > 0
+                          ? Math.round((stats.questions_used / stats.total_questions) * 100)
+                          : 0}
+                        %
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                      <div
+                        className="h-full bg-purple-500"
+                        style={{
+                          width: `${
+                            stats.total_questions > 0
+                              ? (stats.questions_used / stats.total_questions) * 100
+                              : 0
+                          }%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      Papers Created
-                    </span>
-                    <span className="text-2xl">📄</span>
+              {/* Contribution Stats */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
+                <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+                  Contribution Statistics
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="mb-2 text-3xl font-bold text-blue-600 dark:text-blue-400">
+                      {stats.total_papers}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Papers Created</div>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stats?.papers_created || 0}
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      Questions Added
-                    </span>
-                    <span className="text-2xl">📝</span>
+                  <div className="text-center">
+                    <div className="mb-2 text-3xl font-bold text-purple-600 dark:text-purple-400">
+                      {stats.total_questions}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Questions Added</div>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {stats?.questions_created || 0}
-                  </p>
                 </div>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Account Status */}
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+              Account Status
+            </h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Status</span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${user?.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 'bg-gray-100 text-gray-800'}`}>
+                  {user?.is_active ? '✓ Active' : '○ Inactive'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600 dark:text-gray-400">User ID</span>
+                <span className="font-medium">#{user?.id}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Member Since</span>
+                <span className="font-medium">
+                  {user?.created_at ? formatDate(user.created_at) : 'N/A'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Last Login</span>
+                <span className="font-medium">
+                  {user?.last_login ? getRelativeTime(user.last_login) : 'N/A'}
+                </span>
+              </div>
+            </div>
           </div>
-        )}
+
+          {/* Actions */}
+          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+              Quick Actions
+            </h3>
+            <div className="space-y-2">
+              <Link
+                href="/settings/profile"
+                className="block rounded-lg bg-blue-50 px-4 py-3 text-center text-sm font-medium text-blue-700 transition hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30"
+              >
+                ✏️ Edit Profile
+              </Link>
+              <Link
+                href="/settings/security"
+                className="block rounded-lg bg-gray-50 px-4 py-3 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+              >
+                🔒 Change Password
+              </Link>
+              <Link
+                href="/settings/preferences"
+                className="block rounded-lg bg-gray-50 px-4 py-3 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+              >
+                ⚙️ Preferences
+              </Link>
+            </div>
+          </div>
+
+          {/* Help */}
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-900/20 dark:bg-blue-900/10">
+            <h3 className="mb-2 font-semibold text-blue-900 dark:text-blue-400">
+              💡 Profile Tip
+            </h3>
+            <p className="text-sm text-blue-700 dark:text-blue-500">
+              Keep your profile information up to date to ensure smooth communication and proper access to system features.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

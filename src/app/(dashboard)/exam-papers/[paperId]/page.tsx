@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-// src/app/exam-papers/[paperId]/page.tsx
+// src/app/(dashboard)/exam-papers/[paperId]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -132,13 +132,11 @@ export default function ViewExamPaperPage() {
           const parsedOptions = parseOptions(q.options);
 
           if (q.question_type === 'multiple_choice' && parsedOptions) {
-            // If we have a saved order, use it
             let shuffledOptions: string[];
 
             if (q.option_order && Array.isArray(q.option_order)) {
               shuffledOptions = applySavedOrder(parsedOptions, q.option_order);
             } else {
-              // No saved order, just use original
               shuffledOptions = parsedOptions;
             }
 
@@ -184,6 +182,105 @@ export default function ViewExamPaperPage() {
     } catch (error) {
       console.error('Submit error:', error);
       alert('Failed to submit paper');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleReadyForPrint = async () => {
+    if (!confirm('Mark this paper as ready for printing?')) return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch(`/api/exam-papers/${paperId}/ready-for-print`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        alert('Paper marked as ready for printing!');
+        fetchData();
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to mark as ready for print');
+      }
+    } catch (error) {
+      console.error('Ready for print error:', error);
+      alert('Failed to mark as ready for print');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleStartPrinting = async () => {
+    const quantity = prompt('Enter print quantity:', '50');
+    if (!quantity || isNaN(Number(quantity))) return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch(`/api/exam-papers/${paperId}/start-print`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: Number(quantity) }),
+      });
+
+      if (response.ok) {
+        alert('Printing started!');
+        fetchData();
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to start printing');
+      }
+    } catch (error) {
+      console.error('Start print error:', error);
+      alert('Failed to start printing');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCompletePrinting = async () => {
+    if (!confirm('Confirm that printing is complete?')) return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch(`/api/exam-papers/${paperId}/complete-print`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        alert('Printing completed!');
+        fetchData();
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to complete printing');
+      }
+    } catch (error) {
+      console.error('Complete print error:', error);
+      alert('Failed to complete printing');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!confirm('Publish this exam paper?')) return;
+
+    setProcessing(true);
+    try {
+      const response = await fetch(`/api/exam-papers/${paperId}/publish`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        alert('Paper published successfully!');
+        fetchData();
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to publish paper');
+      }
+    } catch (error) {
+      console.error('Publish error:', error);
+      alert('Failed to publish paper');
     } finally {
       setProcessing(false);
     }
@@ -237,7 +334,7 @@ export default function ViewExamPaperPage() {
     );
   };
 
-  // Helper to format date (e.g., "Dec 24 2025")
+  // Helper to format date
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Not set';
     const date = new Date(dateString);
@@ -249,6 +346,7 @@ export default function ViewExamPaperPage() {
     return date.toLocaleDateString('en-US', options);
   };
 
+  // Permission checks
   const canEdit = user && paper && paper.created_by === user.id && paper.status === 'draft';
   const canSubmit =
     user && paper && paper.created_by === user.id && paper.status === 'draft' && questions.length > 0;
@@ -258,6 +356,25 @@ export default function ViewExamPaperPage() {
     ((user.role === 'hod' && paper.status === 'submitted') ||
       (user.role === 'dean' && paper.status === 'hod_approved') ||
       user.role === 'admin');
+  
+  const canMarkReadyForPrint = user && paper && 
+    ((user.role === 'hod' && paper.status === 'hod_approved') ||
+     (user.role === 'dean' && paper.status === 'dean_approved') ||
+     user.role === 'admin');
+  
+  const canPrint = user && paper &&
+    ((user.role === 'exam_master' && ['ready_for_print', 'printing'].includes(paper.status)) ||
+     user.role === 'admin');
+  
+  const canPublish = user && paper &&
+    ((user.role === 'exam_master' && paper.status === 'printed') ||
+     (user.role === 'admin' && ['printed', 'ready_for_print'].includes(paper.status)));
+  
+  const isAlreadyApproved = paper && 
+    ['hod_approved', 'dean_approved', 'ready_for_print', 'printing', 'printed', 'published'].includes(paper.status);
+  
+  const isRejected = paper && 
+    ['hod_rejected', 'dean_rejected'].includes(paper.status);
 
   const statusColors: { [key: string]: string } = {
     draft: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
@@ -268,6 +385,7 @@ export default function ViewExamPaperPage() {
     dean_approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
     dean_rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     ready_for_print: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+    printing: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
     printed: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200',
     published: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
   };
@@ -280,21 +398,20 @@ export default function ViewExamPaperPage() {
   };
 
   const difficultyColors: { [key: string]: string } = {
-    Easy: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    Medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    Hard: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    easy: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    hard: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   };
 
   const bloomColors: { [key: string]: string } = {
-    Remember: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-    Understand: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-    Apply: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    Analyze: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    Evaluate: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-    Create: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    remember: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    understand: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+    apply: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    analyze: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    evaluate: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    create: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   };
 
-  // Calculate total marks from questions
   const calculatedMarks = questions.reduce((sum, q) => sum + q.marks, 0);
 
   if (loading) {
@@ -603,7 +720,7 @@ export default function ViewExamPaperPage() {
                   <div className="flex gap-2 text-xs">
                     <span
                       className={`rounded-full px-2.5 py-1 font-medium ${
-                        difficultyColors[question.difficulty_level] ||
+                        difficultyColors[question.difficulty_level.toLowerCase()] ||
                         'bg-gray-100 text-gray-800'
                       }`}
                     >
@@ -611,7 +728,7 @@ export default function ViewExamPaperPage() {
                     </span>
                     <span
                       className={`rounded-full px-2.5 py-1 font-medium ${
-                        bloomColors[question.bloom_taxonomy] || 'bg-gray-100 text-gray-800'
+                        bloomColors[question.bloom_taxonomy.toLowerCase()] || 'bg-gray-100 text-gray-800'
                       }`}
                     >
                       {question.bloom_taxonomy}
@@ -620,10 +737,12 @@ export default function ViewExamPaperPage() {
                 </div>
 
                 <p className="text-base font-medium text-gray-900 dark:text-white mb-2">
+                  {question.question_type === 'true_false' && (
+                    <span className="text-blue-600 dark:text-blue-400 font-semibold">True/False: </span>
+                  )}
                   {question.question_text}
                 </p>
 
-                {/* Show MCQ options if available */}
                 {question.question_type === 'multiple_choice' &&
                   renderMCQOptions(question.shuffledOptions)}
 
@@ -647,6 +766,7 @@ export default function ViewExamPaperPage() {
           Preview Paper
         </Link>
 
+        {/* Draft Status - Submit for Approval */}
         {canSubmit && (
           <button
             onClick={handleSubmit}
@@ -657,27 +777,94 @@ export default function ViewExamPaperPage() {
           </button>
         )}
 
-        {canApprove && (
+        {/* Rejected Status - Show rejection notice */}
+        {isRejected && paper.created_by === user?.id && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+            ❌ Paper Rejected - Please revise and resubmit
+          </div>
+        )}
+
+        {/* HOD/Dean Approval Actions */}
+        {canApprove && !isAlreadyApproved && (
           <>
             <button
               onClick={() => {
                 setApprovalAction('reject');
                 setShowApprovalModal(true);
               }}
-              className="rounded-lg bg-red-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-red-700"
+              disabled={processing}
+              className="rounded-lg bg-red-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Reject
+              ❌ Reject
             </button>
             <button
               onClick={() => {
                 setApprovalAction('approve');
                 setShowApprovalModal(true);
               }}
-              className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-green-700"
+              disabled={processing}
+              className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               ✅ Approve
             </button>
           </>
+        )}
+
+        {/* Already Approved - Show status */}
+        {isAlreadyApproved && (user?.role === 'hod' || user?.role === 'dean') && (
+          <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-2 text-sm text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+            ✅ Already Approved
+          </div>
+        )}
+
+        {/* Mark as Ready for Print */}
+        {canMarkReadyForPrint && paper.status === 'hod_approved' && (
+          <button
+            onClick={handleReadyForPrint}
+            disabled={processing}
+            className="rounded-lg bg-purple-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {processing ? 'Processing...' : '🖨️ Ready for Print'}
+          </button>
+        )}
+
+        {/* Exam Master - Printing Actions */}
+        {canPrint && paper.status === 'ready_for_print' && (
+          <button
+            onClick={handleStartPrinting}
+            disabled={processing}
+            className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {processing ? 'Processing...' : '🖨️ Start Printing'}
+          </button>
+        )}
+
+        {canPrint && paper.status === 'printing' && (
+          <button
+            onClick={handleCompletePrinting}
+            disabled={processing}
+            className="rounded-lg bg-teal-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {processing ? 'Processing...' : '✅ Complete Printing'}
+          </button>
+        )}
+
+        {/* Publish Paper */}
+        {canPublish && (
+          <button
+            onClick={handlePublish}
+            disabled={processing}
+            className="rounded-lg bg-cyan-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {processing ? 'Publishing...' : '📢 Publish Paper'}
+          </button>
+        )}
+
+        {/* Already Published */}
+        {paper.status === 'published' && (
+          <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-2 text-sm text-purple-700 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-300">
+            📢 Published
+          </div>
         )}
       </div>
 

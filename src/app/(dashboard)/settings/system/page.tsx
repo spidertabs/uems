@@ -222,7 +222,7 @@ export default function SystemSettingsPage() {
                     type="text"
                     value={settings.site_name}
                     onChange={(e) => setSettings({ ...settings, site_name: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   />
                 </div>
 
@@ -234,7 +234,7 @@ export default function SystemSettingsPage() {
                     type="email"
                     value={settings.site_email}
                     onChange={(e) => setSettings({ ...settings, site_email: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   />
                   <p className="mt-1 text-xs text-gray-500">Used for system notifications</p>
                 </div>
@@ -251,7 +251,7 @@ export default function SystemSettingsPage() {
                     onChange={(e) =>
                       setSettings({ ...settings, max_file_size: parseInt(e.target.value) })
                     }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   />
                 </div>
               </div>
@@ -276,7 +276,7 @@ export default function SystemSettingsPage() {
                       value={settings.smtp_host}
                       onChange={(e) => setSettings({ ...settings, smtp_host: e.target.value })}
                       placeholder="smtp.gmail.com"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                     />
                   </div>
 
@@ -291,7 +291,7 @@ export default function SystemSettingsPage() {
                         setSettings({ ...settings, smtp_port: parseInt(e.target.value) })
                       }
                       placeholder="587"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                     />
                   </div>
 
@@ -304,7 +304,7 @@ export default function SystemSettingsPage() {
                       value={settings.smtp_user}
                       onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
                       placeholder="your-email@domain.com"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                     />
                   </div>
 
@@ -367,7 +367,7 @@ export default function SystemSettingsPage() {
                     onChange={(e) =>
                       setSettings({ ...settings, session_timeout: parseInt(e.target.value) })
                     }
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Auto logout after inactivity
@@ -518,7 +518,7 @@ export default function SystemSettingsPage() {
             </button>
             <Link
               href="/settings"
-              className="rounded-lg border border-gray-300 px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="rounded-lg border border-gray-300 bg-white px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               Cancel
             </Link>

@@ -1,5 +1,6 @@
 // ============================================================
-// src/app/api/print-queue/[paperId]/route.ts
+// FILE 1: src/app/api/print-queue/[paperId]/route.ts
+// ============================================================
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
@@ -7,7 +8,7 @@ import { verifyAuth } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { paperId: string } }
+  { params }: { params: Promise<{ paperId: string }> }
 ) {
   try {
     const session = await verifyAuth(request);
@@ -16,12 +17,15 @@ export async function GET(
     }
 
     const { role } = session;
-
     if (!['exam_master', 'admin'].includes(role)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const paperId = parseInt(params.paperId);
+    // CRITICAL FIX: Await the params object
+    const { paperId } = await params;
+    const paperIdNum = parseInt(paperId);
+
+    console.log('Fetching paper from print queue:', paperIdNum);
 
     const sql = `
       SELECT 
@@ -41,11 +45,15 @@ export async function GET(
       LEFT JOIN users hod ON ep.hod_id = hod.id
       LEFT JOIN exam_paper_programmes epp ON ep.id = epp.exam_paper_id
       LEFT JOIN programmes p ON epp.programme_id = p.id
-      WHERE ep.id = ? AND ep.deleted_at IS NULL
+      WHERE ep.id = ? 
+        AND ep.deleted_at IS NULL
+        AND ep.status IN ('ready_for_print', 'printing', 'printed')
       GROUP BY ep.id
     `;
 
-    const results = await query<any[]>(sql, [paperId]);
+    const results = await query<any[]>(sql, [paperIdNum]);
+
+    console.log('Query results:', results?.length || 0, 'papers found');
 
     if (!results || results.length === 0) {
       return NextResponse.json({ error: 'Paper not found' }, { status: 404 });
