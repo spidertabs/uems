@@ -182,13 +182,10 @@ NOTE: Dont generate files that I have ...I already have my data in my database
 │   │   │
 │   │   ├── 📂 notifications/
 │   │   │   ├── 📂 inbox/
-│   │   │   │   └── page.tsx                        ⭐ CREATE
 │   │   │   ├── 📂 outbox/
-│   │   │   │   └── page.tsx                        ⭐ CREATE
 │   │   │   ├── 📂 feedback/
-│   │   │   │   └── page.tsx                        ⭐ CREATE
-│   │   │   └── 📂 history/
-│   │   │       └── page.tsx                        ⭐ CREATE
+│   │   │   ├── 📂 history/
+│   │   │   └── 📜 page.tsx
 │   │   │
 │   │   ├── 📂 reports/                             ⭐ NEW SECTION
 │   │   │   ├── 📜 page.tsx                         ⭐ CREATE - Reports dashboard

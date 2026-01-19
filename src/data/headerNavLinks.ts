@@ -21,7 +21,7 @@ const headerNavLinks: NavLink[] = [
   // Academic Content
   {
     title: '📬 Notifications',
-    href: '/notifications/inbox',
+    href: '/notifications/',
     roles: ['lecturer', 'hod', 'dean', 'exam_master', 'admin'],
   },
   {
