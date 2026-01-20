@@ -240,7 +240,7 @@ Draft → Submit → HOD Review → HOD Approval → Ready for Print → Printin
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/uems.git
+   git clone https://github.com/spidertabs/uems.git
    cd uems
    ```
 
@@ -582,11 +582,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 👨‍💻 Original Authors
+## 👨‍💻 Authors
 
-- **Sempuwo Mathew David** - Developer
+- **Sempuwo Mathew David** - Lead Developer
 - **Ocen Isaac** - Developer
-- **Gava Hans** - Lead Developer
+- **Gava Hans** - Developer
 
 ---
 
@@ -604,9 +604,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 For questions, issues, or suggestions:
 
 - **Project Team**: Sempuwo Mathew David, Ocen Isaac, Gava Hans
-- **Email**: spidertabs@gmail.com
-- **GitHub Issues**: [Create an issue](https://github.com/yourusername/uems/issues)
-- **Documentation**: [Wiki](https://github.com/yourusername/uems/wiki)
+- **Email**: support@kiu.ac.ug
+- **GitHub Issues**: [Create an issue](https://github.com/spidertabs/uems/issues)
+- **Documentation**: [Wiki](https://github.com/spidertabs/uems/wiki)
 
 ---
 
