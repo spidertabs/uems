@@ -30,6 +30,8 @@ A comprehensive digital solution for managing university examination papers, fro
 
 UEMS (University Exam Management System) streamlines the entire examination lifecycle at Kampala International University. The system manages everything from question bank creation to exam paper approval, printing, and publication, ensuring academic integrity and efficient workflows.
 
+![Login](./public/screenshots/register.png)
+
 ### Problem Statement
 
 Traditional exam management involves:
