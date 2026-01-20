@@ -1,4 +1,4 @@
- // src/app/question-bank/create/page.tsx
+// src/app/(dashboard)/question-bank/create/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -213,9 +213,9 @@ export default function CreateQuestionPage() {
                 onChange={handleChange}
                 className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
                   errors.course_id
-                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
-                } dark:bg-gray-700 dark:text-white`}
+                    ? 'border-red-500 bg-red-50 text-gray-900 focus:border-red-500 focus:bg-white focus:ring-red-500 dark:bg-red-900/20 dark:text-white'
+                    : 'border-gray-300 bg-gray-50 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                }`}
               >
                 <option value="">Select a course</option>
                 {courses.map((course) => (
@@ -238,7 +238,7 @@ export default function CreateQuestionPage() {
                 value={formData.study_unit_id}
                 onChange={handleChange}
                 disabled={!formData.course_id}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800"
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800"
               >
                 <option value="">Select a study unit</option>
                 {filteredStudyUnits.map((unit) => (
@@ -265,7 +265,7 @@ export default function CreateQuestionPage() {
                 name="question_type"
                 value={formData.question_type}
                 onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
                 {questionTypes.map((type) => (
                   <option key={type} value={type}>
@@ -284,11 +284,11 @@ export default function CreateQuestionPage() {
                 value={formData.question_text}
                 onChange={handleChange}
                 rows={4}
-                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                className={`w-full rounded-lg border px-3 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-1 ${
                   errors.question_text
-                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
-                } dark:bg-gray-700 dark:text-white`}
+                    ? 'border-red-500 bg-red-50 text-gray-900 focus:border-red-500 focus:bg-white focus:ring-red-500 dark:bg-red-900/20 dark:text-white dark:placeholder-gray-400'
+                    : 'border-gray-300 bg-gray-50 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400'
+                }`}
                 placeholder="Enter the question text..."
               />
               {errors.question_text && (
@@ -309,9 +309,9 @@ export default function CreateQuestionPage() {
                   min="1"
                   className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
                     errors.marks
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
-                  } dark:bg-gray-700 dark:text-white`}
+                      ? 'border-red-500 bg-red-50 text-gray-900 focus:border-red-500 focus:bg-white focus:ring-red-500 dark:bg-red-900/20 dark:text-white'
+                      : 'border-gray-300 bg-gray-50 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white'
+                  }`}
                 />
                 {errors.marks && <p className="mt-1 text-xs text-red-500">{errors.marks}</p>}
               </div>
@@ -324,7 +324,7 @@ export default function CreateQuestionPage() {
                   name="difficulty_level"
                   value={formData.difficulty_level}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   {difficultyLevels.map((level) => (
                     <option key={level} value={level}>
@@ -342,7 +342,7 @@ export default function CreateQuestionPage() {
                   name="bloom_level"
                   value={formData.bloom_level}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   {bloomLevels.map((level) => (
                     <option key={level} value={level}>
@@ -372,7 +372,7 @@ export default function CreateQuestionPage() {
                     value={option}
                     onChange={(e) => handleOptionChange(index, e.target.value)}
                     placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    className="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                   />
                   {formData.options.length > 2 && (
                     <button
@@ -406,11 +406,11 @@ export default function CreateQuestionPage() {
                 value={formData.correct_answer}
                 onChange={handleChange}
                 placeholder="Enter the correct answer (e.g., A or the full text)"
-                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                className={`w-full rounded-lg border px-3 py-2 text-sm placeholder-gray-400 focus:outline-none focus:ring-1 ${
                   errors.correct_answer
-                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600'
-                } dark:bg-gray-700 dark:text-white`}
+                    ? 'border-red-500 bg-red-50 text-gray-900 focus:border-red-500 focus:bg-white focus:ring-red-500 dark:bg-red-900/20 dark:text-white dark:placeholder-gray-400'
+                    : 'border-gray-300 bg-gray-50 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400'
+                }`}
               />
               {errors.correct_answer && (
                 <p className="mt-1 text-xs text-red-500">{errors.correct_answer}</p>
@@ -434,7 +434,7 @@ export default function CreateQuestionPage() {
                 value={formData.answer_explanation}
                 onChange={handleChange}
                 rows={3}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                 placeholder="Provide an explanation for the correct answer..."
               />
             </div>
@@ -449,7 +449,7 @@ export default function CreateQuestionPage() {
                 value={formData.tags}
                 onChange={handleChange}
                 placeholder="e.g., algebra, functions, derivatives (comma-separated)"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
               />
             </div>
           </div>

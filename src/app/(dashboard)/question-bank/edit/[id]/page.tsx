@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */ 
-// src/app/question-bank/edit/[id]/page.tsx
+// src/app/(dashboard)/question-bank/edit/[id]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
