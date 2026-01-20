@@ -1,8 +1,6 @@
 # 🎓 UEMS - University Exam Management System
 
-<div align="center">
-  <img src="./public/static/images/kiu-logo.png" alt="UEMS Banner" width="600">
-</div>
+![Register](./public/screenshots/register.png)
 
 A comprehensive digital solution for managing university examination papers, from question creation to final publication and printing.
 
