@@ -611,10 +611,8 @@ This project is licensed under the MIT Licence - see the [LICENCE](LICENCE) file
 
 For questions, issues, or suggestions:
 
-- **Project Team**: Sempuwo Mathew David, Ocen Isaac, Gava Hans
+- **Project Team**: Gava Hans, Ocen Isaac, Sempuwo Mathew David
 - **Email**: spider.tabs@gmail.com
-- **GitHub Issues**: [Create an issue](https://github.com/spidertabs/uems/README.md)
-- **Documentation**: [Wiki](https://github.com/spidertabs/uems/README.md)
 
 ---
 
@@ -623,5 +621,5 @@ For questions, issues, or suggestions:
   <p>
     <img src="./public/static/images/kiu-logo.png" alt="KIU Logo" width="100">
   </p>
-  <p><em> Gava Hans • Ocen Isaac  • Sempuwo Mathew David </em></p>
+  <p><em>Gava Hans • Ocen Isaac • Sempuwo Mathew David</em></p>
 </div>
