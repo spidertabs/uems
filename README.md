@@ -617,7 +617,7 @@ For questions, issues, or suggestions:
 ---
 
 <div align="center">
-  <p>Built with ❤️ by <strong>Spider Tabs Ltd</strong> At Kampala International University</p>
+  <p>Built with ❤️ by <strong>Spider Tabs Ltd</strong> at <strong>Kampala International University<strong></p>
   <p>
     <img src="./public/static/images/kiu-logo.png" alt="KIU Logo" width="100">
   </p>
