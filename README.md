@@ -30,7 +30,7 @@ A comprehensive digital solution for managing university examination papers, fro
 
 UEMS (University Exam Management System) streamlines the entire examination lifecycle at Kampala International University. The system manages everything from question bank creation to exam paper approval, printing, and publication, ensuring academic integrity and efficient workflows.
 
-![Login](./public/screenshots/register.png)
+![Register](./public/screenshots/register.png)
 
 ### Problem Statement
 
@@ -582,6 +582,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+## 👨‍💻 Original Authors
+
+- **Sempuwo Mathew David** - Developer
+- **Ocen Isaac** - Developer
+- **Gava Hans** - Lead Developer
+
+---
+
 ## 🙏 Acknowledgments
 
 - **Kampala International University** for the opportunity
@@ -595,6 +603,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For questions, issues, or suggestions:
 
+- **Project Team**: Sempuwo Mathew David, Ocen Isaac, Gava Hans
 - **Email**: support@kiu.ac.ug
 - **GitHub Issues**: [Create an issue](https://github.com/yourusername/uems/issues)
 - **Documentation**: [Wiki](https://github.com/yourusername/uems/wiki)
