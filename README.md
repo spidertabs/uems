@@ -147,7 +147,7 @@ Draft → Submit → HOD Review → HOD Approval → Ready for Print → Printin
 ### 🔐 Register Page
 *User registration interface for new accounts*
 
-![Register](./public/screenshots/register.png)
+![Register](./public/screenshots/register_d.png)
 
 ---
 
