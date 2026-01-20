@@ -592,9 +592,9 @@ This project is licensed under the MIT Licence - see the [LICENCE](LICENCE) file
 
 ## 👨‍💻 Authors
 
-- **Sempuwo Mathew David** - Developer
+- **Gava Hans** - Lead Developer
 - **Ocen Isaac** - Developer
-- **Gava Hans** - Developer
+- **Sempuwo Mathew David** - Developer
 
 ---
 
@@ -624,5 +624,5 @@ For questions, issues, or suggestions:
   <p>
     <img src="./public/static/images/kiu-logo.png" alt="KIU Logo" width="100">
   </p>
-  <p><em>Sempuwo Mathew David • Ocen Isaac • Gava Hans</em></p>
+  <p><em> Gava Hans • Ocen Isaac  • Sempuwo Mathew David </em></p>
 </div>
