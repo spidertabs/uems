@@ -1,5 +1,9 @@
 # 🎓 UEMS - University Exam Management System
 
+<div align="center">
+  <img src="./public/static/images/kiu-logo.png" alt="UEMS Banner" width="600">
+</div>
+
 A comprehensive digital solution for managing university examination papers, from question creation to final publication and printing.
 
 [![Next.js](https://img.shields.io/badge/Next.js-14+-black?logo=next.js)](https://nextjs.org/)
@@ -617,7 +621,7 @@ For questions, issues, or suggestions:
 ---
 
 <div align="center">
-  <p>Built with ❤️ by <strong>Spider Tabs Ltd</strong> at <strong>Kampala International University<strong></p>
+  <p>Built with ❤️ by <strong>Spider Tabs Ltd</strong> At Kampala International University</p>
   <p>
     <img src="./public/static/images/kiu-logo.png" alt="KIU Logo" width="100">
   </p>
