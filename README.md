@@ -30,8 +30,6 @@ A comprehensive digital solution for managing university examination papers, fro
 
 UEMS (University Exam Management System) streamlines the entire examination lifecycle at Kampala International University. The system manages everything from question bank creation to exam paper approval, printing, and publication, ensuring academic integrity and efficient workflows.
 
-![Register](./public/screenshots/register.png)
-
 ### Problem Statement
 
 Traditional exam management involves:
@@ -144,6 +142,20 @@ Draft → Submit → HOD Review → HOD Approval → Ready for Print → Printin
 
 ## 📸 Screenshots
 
+### 🔐 Register Page
+*User registration interface for new accounts*
+
+![Register](./public/screenshots/register.png)
+
+---
+
+### 🔐 Login Page
+*Secure authentication interface*
+
+![Login](./public/screenshots/login.png)
+
+---
+
 ### 🏠 Dashboard
 *Main dashboard showing system overview and key metrics*
 
@@ -218,13 +230,6 @@ Draft → Submit → HOD Review → HOD Approval → Ready for Print → Printin
 *Manage colleges, departments, and programmes*
 
 ![Organizational Structure](./public/screenshots/organizational-structure.png)
-
----
-
-### 🔐 Login Page
-*Secure authentication interface*
-
-![Login](./public/screenshots/login.png)
 
 ---
 
@@ -376,6 +381,8 @@ Then add your screenshots with these recommended names:
 
 ```
 public/screenshots/
+├── register.png                     # User registration page
+├── login.png                        # Login page
 ├── dashboard.png                    # Main dashboard
 ├── question-bank.png                # Question bank listing
 ├── paper-creation.png               # Exam paper creation form
@@ -386,8 +393,7 @@ public/screenshots/
 ├── notifications.png                # Notifications page
 ├── reports.png                      # Reports and analytics
 ├── user-management.png              # User management
-├── organizational-structure.png     # Colleges/Departments
-└── login.png                        # Login page
+└── organizational-structure.png     # Colleges/Departments
 ```
 
 **Recommended Screenshot Dimensions**: 1920x1080 or 1440x900 (16:9 ratio)
@@ -576,9 +582,11 @@ We welcome contributions! Please follow these steps:
 
 ---
 
-## 📄 License
+## 📄 Licence
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT Licence - see the [LICENCE](LICENCE) file for details.
+
+**Copyright © 2025 Spider Tabs Ltd**
 
 ---
 
@@ -604,15 +612,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 For questions, issues, or suggestions:
 
 - **Project Team**: Sempuwo Mathew David, Ocen Isaac, Gava Hans
-- **Email**: support@kiu.ac.ug
-- **GitHub Issues**: [Create an issue](https://github.com/spidertabs/uems/issues)
-- **Documentation**: [Wiki](https://github.com/spidertabs/uems/wiki)
+- **Email**: spider.tabs@gmail.com
+- **GitHub Issues**: [Create an issue](https://github.com/spidertabs/uems/README.md)
+- **Documentation**: [Wiki](https://github.com/spidertabs/uems/README.md)
 
 ---
 
 <div align="center">
-  <p>Built with ❤️ at Kampala International University</p>
+  <p>Built with ❤️ by <strong>Spider Tabs Ltd</strong></p>
+  <p>Kampala International University</p>
   <p>
     <img src="./public/static/images/kiu-logo.png" alt="KIU Logo" width="100">
   </p>
+  <p><em>Sempuwo Mathew David • Ocen Isaac • Gava Hans</em></p>
 </div>
