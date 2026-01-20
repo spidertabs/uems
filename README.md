@@ -592,7 +592,7 @@ This project is licensed under the MIT Licence - see the [LICENCE](LICENCE) file
 
 ## 👨‍💻 Authors
 
-- **Sempuwo Mathew David** - Lead Developer
+- **Sempuwo Mathew David** - Developer
 - **Ocen Isaac** - Developer
 - **Gava Hans** - Developer
 
