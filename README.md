@@ -604,7 +604,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 For questions, issues, or suggestions:
 
 - **Project Team**: Sempuwo Mathew David, Ocen Isaac, Gava Hans
-- **Email**: support@kiu.ac.ug
+- **Email**: spidertabs@gmail.com
 - **GitHub Issues**: [Create an issue](https://github.com/yourusername/uems/issues)
 - **Documentation**: [Wiki](https://github.com/yourusername/uems/wiki)
 
