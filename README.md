@@ -318,7 +318,7 @@ After running the seed script, use these credentials:
 
 | Role | Email | Password |
 |------|-------|----------|
-| **Admin** | admin@kiu.ac.ug | Admin@123 |
+| **Admin** | admin@kiu.ac.ug | admin123 |
 | **HOD** | hod@kiu.ac.ug | Hod@123 |
 | **Lecturer** | lecturer@kiu.ac.ug | Lecturer@123 |
 | **Exam Master** | exammaster@kiu.ac.ug | ExamMaster@123 |
@@ -588,7 +588,7 @@ We welcome contributions! Please follow these steps:
 
 This project is licensed under the MIT Licence - see the [LICENCE](LICENCE) file for details.
 
-**Copyright © 2025 Spider Tabs Ltd**
+**Copyright © 2026 Spider Tabs Ltd**
 
 ---
 
