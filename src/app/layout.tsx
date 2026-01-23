@@ -343,6 +343,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const mainNavLinks = filteredNavLinks.filter((link) => link.href !== '/settings');
   const settingsLink = filteredNavLinks.find((link) => link.href === '/settings');
 
+  // Generate page title based on user and route
+  const getPageTitle = () => {
+    if (user && !isAuthRoute) {
+      const name = user.name || 'Admin';
+      const role = user.role ? user.role.replace('_', ' ').toUpperCase() : 'ADMIN';
+      return `${name} - ${role} | UEMS`;
+    }
+    return 'UEMS - University Exam Management System';
+  };
+
+  // Generate Open Graph title
+  const getOGTitle = () => {
+    if (user && !isAuthRoute) {
+      const name = user.name || 'Admin';
+      const role = user.role ? user.role.replace('_', ' ').toUpperCase() : 'ADMIN';
+      return `${name} - ${role} | UEMS`;
+    }
+    return 'UEMS - University Exam Management System';
+  };
+
   return (
     <html lang="en">
       <head>
@@ -354,13 +374,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         
         {/* Open Graph */}
         <meta property="og:type" content="website" />
-        <meta property="og:title" content={user ? `${user.name} - ${user.role.replace('_', ' ').toUpperCase()} | UEMS` : 'UEMS - University Exam Management System'} />
+        <meta property="og:title" content={getOGTitle()} />
         <meta property="og:description" content="University Exam Management System for managing exam papers, question banks, and approval workflows" />
         <meta property="og:site_name" content="UEMS" />
         
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={user ? `${user.name} - ${user.role.replace('_', ' ').toUpperCase()} | UEMS` : 'UEMS - University Exam Management System'} />
+        <meta name="twitter:title" content={getOGTitle()} />
         <meta name="twitter:description" content="University Exam Management System for managing exam papers, question banks, and approval workflows" />
         <meta name="twitter:image" content="/static/images/kiu-seal.png" />
         
@@ -368,7 +388,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" type="image/png" href="/static/images/kiu-logo.png" />
         <link rel="apple-touch-icon" href="/static/images/kiu-logo.png" />
         
-        <title>{user ? `${user.name} - ${user.role.replace('_', ' ').toUpperCase()} | UEMS` : 'UEMS - University Exam Management System'}</title>
+        <title>{getPageTitle()}</title>
       </head>
       <body className="min-h-screen bg-gray-50 font-sans antialiased dark:bg-gray-900">
         {isAuthRoute ? (
