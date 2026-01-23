@@ -168,9 +168,9 @@ INSERT INTO programmes (code, name, level, duration_years, department_id, colleg
 ('PHDMSPM', 'PhD in Management Sciences - Public Management', 'phd', 3, 42, 11, 'Doctoral research in public management', TRUE);
 
 -- ============================================================
--- Users: COMMON PASSWORD HASH (bcrypt) Password: admin123
+-- Users: COMMON PASSWORD HASH (bcrypt) Password: uems@2026
 -- ============================================================
-SET @HASH := '$2b$12$p7vxZWNxKttUQLyf7xxirOBHWVH2wOrMYDehizyWUpP4SATMquMY.';
+SET @HASH := '$2b$12$hsqbYaw0n/FY9M7hU0i9ju.8/dxPP03CGh4zeZy6xGCX4qAFBYRgu';
 INSERT INTO users (email, password_hash, first_name, last_name, role, department_id, college_id, phone ) VALUES
 
 -- ADMIN USERS

@@ -314,11 +314,11 @@ Draft → Submit → HOD Review → HOD Approval → Ready for Print → Printin
 
 ### Default Login Credentials
 
-After running the seed script, use these credentials:
+After running the seed script, use these credentials: use default password: uems@2026
 
 | Role | Email | Password |
 |------|-------|----------|
-| **Admin** | admin@kiu.ac.ug | admin123 |
+| **Admin** | admin@kiu.ac.ug | admin@123 |
 | **HOD** | hod@kiu.ac.ug | Hod@123 |
 | **Lecturer** | lecturer@kiu.ac.ug | Lecturer@123 |
 | **Exam Master** | exammaster@kiu.ac.ug | ExamMaster@123 |
@@ -371,15 +371,15 @@ uems/
 └── tailwind.config.js
 ```
 
-### 📸 Where to Place Screenshots
+### 📸 Where Screenshots are placed
 
-Create a `screenshots` folder inside `public/`:
+In `screenshots` folder inside `public/`:
 
 ```bash
-mkdir -p public/screenshots
+public/screenshots
 ```
 
-Then add your screenshots with these recommended names:
+Add with these names:
 
 ```
 public/screenshots/
@@ -398,7 +398,7 @@ public/screenshots/
 └── organizational-structure.png     # Colleges/Departments
 ```
 
-**Recommended Screenshot Dimensions**: 1920x1080 or 1440x900 (16:9 ratio)
+**Of a Recommended Screenshot Dimensions**: 1920x1080 or 1440x900 (16:9 ratio)
 
 ---
 
@@ -549,18 +549,17 @@ POST   /api/notifications/mark-all-read
 - [x] Print queue management
 
 ### 🔄 Phase 2 (In Progress)
+- [ ] Bulk operations
 - [ ] Advanced reporting
+- [ ] Search and filters
 - [ ] Email notifications
 - [ ] Document generation (PDF export)
-- [ ] Bulk operations
-- [ ] Search and filters
 
 ### 📅 Phase 3 (Planned)
+- [ ] Analytics dashboard
+- [ ] Plagiarism detection
 - [ ] Mobile app (React Native)
 - [ ] AI-powered question suggestions
-- [ ] Plagiarism detection
-- [ ] Student result management
-- [ ] Analytics dashboard
 
 ---
 
